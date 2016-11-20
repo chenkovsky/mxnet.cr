@@ -1,6 +1,7 @@
 # mxnet
+Under developping
+mxnet bind for crystal-lang
 
-TODO: Write a description here
 
 ## Installation
 
@@ -10,7 +11,7 @@ Add this to your application's `shard.yml`:
 ```yaml
 dependencies:
   mxnet:
-    github: [your-github-name]/mxnet
+    github: chenkovsky/mxnet.cr
 ```
 
 
@@ -30,7 +31,7 @@ TODO: Write development instructions here
 
 ## Contributing
 
-1. Fork it ( https://github.com/[your-github-name]/mxnet/fork )
+1. Fork it ( https://github.com/chenkovsky/mxnet/fork )
 2. Create your feature branch (git checkout -b my-new-feature)
 3. Commit your changes (git commit -am 'Add some feature')
 4. Push to the branch (git push origin my-new-feature)
@@ -38,4 +39,4 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [[your-github-name]](https://github.com/[your-github-name]) chenkovsky - creator, maintainer
+- [chenkovsky](https://github.com/chenkovsky) chenkovsky - creator, maintainer
