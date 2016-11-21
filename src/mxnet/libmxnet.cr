@@ -16,6 +16,7 @@ lib LibMXNet
   type OptimizerCreator = Void*
   type OptimizerHandle = Void*
   type ExecutorMonitorCallback = UInt8*, NDArrayHandle, Void* -> Void
+  type BucketKey = Void*
 
   struct NativeOpInfo
     forward : Int32, Float**, Int32*, UInt16**, Int32*, Void* -> Void
