@@ -658,11 +658,11 @@ lib LibMXNet
   # param vals parameter values
   # param out resulting iterator
   # return 0 when success, -1 when failure happens
-  fun mx_data_iter_creater_iter = MXDataIterCreateIter(handle : DataIterCreator,
-                                                       num_param : MXUInt,
-                                                       keys : UInt8**,
-                                                       vals : UInt8**,
-                                                       out_ : DataIterHandle*) : Int32
+  fun mx_data_iter_create_iter = MXDataIterCreateIter(handle : DataIterCreator,
+                                                      num_param : MXUInt,
+                                                      keys : UInt8**,
+                                                      vals : UInt8**,
+                                                      out_ : DataIterHandle*) : Int32
   # Get the detailed information about data iterator.
   # param creator the DataIterCreator.
   # param name The returned name of the creator.
