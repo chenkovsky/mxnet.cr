@@ -5,6 +5,7 @@ module MXNet
       Local_Allreduce_Device
       Dist_Sync
       Dist_Async
+      Dist
 
       def to_s
         case self
@@ -16,6 +17,8 @@ module MXNet
           "dist_sync"
         when Dist_Async
           "dist_async"
+        when Dist
+          "dist"
         end
       end
     end
