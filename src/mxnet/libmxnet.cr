@@ -633,7 +633,7 @@ lib LibMXNet
                                              map_dev_ids : Int32*, len : MXUInt,
                                              in_args : NDArrayHandle*, arg_grad_store : NDArrayHandle*,
                                              grad_req_type : MXUInt*, aux_states_len : MXUInt,
-                                             aux_states : NDArrayHandle*, shared_exec : ExecutorHandle*,
+                                             aux_states : NDArrayHandle*, shared_exec : ExecutorHandle,
                                              out_ : ExecutorHandle*) : Int32
 
   # set a call back to notify the completion of operation
