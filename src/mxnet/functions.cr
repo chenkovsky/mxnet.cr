@@ -319,13 +319,8 @@ module MXNet
       Function.invoke_generic(Function::F_div_scalar, self, rhs, out: self)[0]
     end
 
-    def copy_to(other : NDArray) : NDArray
+    private def _copy_to(other : NDArray) : NDArray
       Function.invoke_unary(Function::F_copyto, self, out: other)
-    end
-
-    def copy_to(ctx : Context) : NDArray
-      ret = NDArray.new shape, ctx, delay_alloc: true
-      copy_to(ret)
     end
   end
 end

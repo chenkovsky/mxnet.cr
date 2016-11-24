@@ -11,18 +11,12 @@ module MXNet
       @shape[dim]
     end
 
-    def [](from : Int32, end to : Int32)
-      Shape.new @shape[from, to - from]
+    def [](start : Int, count : Int)
+      Shape.new @shape[start, count]
     end
 
-    def drop(dim : Int32)
-      shape = @shape.clone
-      shape.delete_at dim
-      Shape.new shape
-    end
-
-    def head
-      @shape[0]
+    def [](range : Range(Int, Int))
+      Shape.new @shape[range]
     end
 
     def prod
