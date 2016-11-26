@@ -12,6 +12,10 @@ module MXNet
       return @attr.merge(attr)
     end
 
+    def self.[](attr)
+      @@current.get(attr)
+    end
+
     def self.with(attr)
       old_attr_scope = @@current
       @attr = @@current.attr.merge(@attr)
