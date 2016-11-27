@@ -8,6 +8,7 @@ module MXNet
 
   class FactorScheduler < LRScheduler
     def initialize(@step : Int32, @factor : Float32)
+      super
       @count = 0
       raise MXError.new "Schedule step must be greater or equal than 1 round" if @step < 1
       raise MXError.new "Factor must be less than 1 to make lr reduce" if factor >= 1.0

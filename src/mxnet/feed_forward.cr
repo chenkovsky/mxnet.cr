@@ -20,7 +20,7 @@ module MXNet
   # @param beginEpoch The beginning training epoch.
   class FeedForward
     @symbol : Symbol
-    @sym_gen : SymbolGenerator?
+    @sym_gen : Symbol::Generator?
     @ctx : Array(Context)
     @num_epoch : Int32
     @epoch_size : Int32
@@ -104,7 +104,7 @@ module MXNet
       ExecutorManager.check_arguments @symbol
       @pred_exec = pred_exec
     end
-    private def init_iter(x : NDArray, y : NDArray, is_train : Bool) : DataIter
+    private def init_iter(x : NDArray, y : NDArray, is_train : Bool) : Data::Iter
       raise MXError.new "y must be specified" unless !y.nil? || !is_train
       label = if y.nil?
                 NDArray.zeros x.shape[0]
@@ -132,7 +132,7 @@ module MXNet
     # @param numBatch the number of batch to run. Go though all batches if set -1
     # @return The predicted value of the output.
     #         Note the network may have multiple outputs, thus it return an array of [[NDArray]]
-    def predict(data : DataIter, num_batch : Int32 = -1) : Array(NDArray)
+    def predict(data : Data::Iter, num_batch : Int32 = -1) : Array(NDArray)
       data.reset
       data_shapes = data.provide_data
       data_names = data_shapes.map { |x| x[0] }
@@ -173,26 +173,26 @@ module MXNet
     #                    In default uses 'local', often no need to change for single machine.
     # @param logger When not specified, default logger will be used.
     # @param workLoadList The list of work load for different devices, in the same order as ctx
-    def fit(train_data : DataIter, eval_data : DataIter, eval_metric : EvalMetric = Accuracy.new, kv_store_type : KVStoreType = KVStoreType::LOCAL, epoch_end_callback : EpochEndCallback? = nil,
-            batch_end_callback : BatchEndCallback? = nil,
+    def fit(train_data : Data::Iter, eval_data : Data::Iter, eval_metric : EvalMetric = Accuracy.new, kv_store_type : KVStore::Type = KVStore::Type::LOCAL, epoch_end_callback : Model::EpochEndCallback? = nil,
+            batch_end_callback : Model::BatchEndCallback? = nil,
             logger : Logger = @@logger, work_load_list : Array(Float32)? = nil)
       init_symbol_params train_data
       kv_store, update_on_kv_store = Model.create_kv_store kv
       fit train_data, eval_data, kv_store, update_on_kv_store, eval_metric, epoch_end_callback, batch_end_callback, logger, work_load_list
     end
 
-    private def init_symbol_params(train_data : DataIter)
+    private def init_symbol_params(train_data : Data::Iter)
       if !@sym_gen.nil?
         @symbol = @sym_gen.generate(train_data.default_bucket_key)
         check_arguments
       end
       init_params(train_data.provide_data + train_data.provide_label)
     end
-    private def fit(train_data : DataIter, eval_data : DataIter,
+    private def fit(train_data : Data::Iter, eval_data : Data::Iter,
                     kv_store : KVStore, update_on_kv_store : Bool,
                     eval_metric : EvalMetric = Accuracy.new,
-                    epoch_end_callback : EpochEndCallback? = nil,
-                    batch_end_callback : BatchEndCallback? = nil,
+                    epoch_end_callback : Model::EpochEndCallback? = nil,
+                    batch_end_callback : Model::BatchEndCallback? = nil,
                     logger : Logger = @@logger, work_load_list : Array(Float32)? = nil)
       arg_names, param_names, aux_names = init_symbol_params train_data
       batch_size_multiplier = if kv_store.type == kvStoreType
@@ -294,15 +294,15 @@ module MXNet
       @batch_size : Int32
       @arg_params : Hash(String, NDArray)?
       @aux_params : Hash(String, NDArray)?
-      @allowExtraParams : Bool
+      @allow_extra_params : Bool
       @begin_epoch : Int32
-      @train_data : DataIter?
-      @eval_data : DataIter?
-      @eval_metric : EvalMetric
+      @train_data : Data::Iter?
+      @eval_data : Data::Iter?
+      @eval_metric : Metric::EvalMetric
       @kv_store_inst : KVStore?
-      @kv_store_type : KVStoreType
-      @epoch_end_callback : EpochEndCallback?
-      @batch_end_callback : BatchEndCallback?
+      @kv_store_type : KVStore::Type
+      @epoch_end_callback : Model::EpochEndCallback?
+      @batch_end_callback : Model::BatchEndCallback?
       @logger : Logger
       @work_load_list : Array(Float32)?
       setter :ctx, :num_epoch, :epoch_size, :optimizer, :initializer, :batch_size
@@ -315,10 +315,17 @@ module MXNet
         @num_epoch = -1
         @epoch_size = -1
         @optimizer = SGD.new
+        @initializer = Uniform.new 0.01_f32
+        @batch_size = 128
+        @arg_params = nil
+        @aux_params = nil
         @allow_extra_params = false
         @begin_epoch = 0
+        @train_data = nil
+        @eval_data = nil
         @eval_metric = Accuracy.new
-        @kv_store_type = KVStoreType::LOCAL
+        @kv_store_inst = nil
+        @kv_store_type = KVStore::Type::LOCAL
         @logger = FeedForward.logger
       end
 

@@ -3,7 +3,7 @@ module MXNet
     abstract class EvalMetric
       # Base class of all evaluation metrics
       @name : String
-      @num_inst : Int
+      @num_inst : Int32
       @sum_metric : Float32
 
       def initialize(@name)

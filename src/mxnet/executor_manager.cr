@@ -1,6 +1,7 @@
 require "logger"
 
 module MXNet
+  # Helper class to manage multiple executors for data parallelism.
   class DataParallelExecutorManager
     @@logger = Logger.new(STDOUT)
     @symbol : Symbol
@@ -8,10 +9,10 @@ module MXNet
     @param_names : Array(String)
     @arg_names : Array(String)
     @aux_names : Array(String)
-    @train_data : DataIter
+    @train_data : Data::Iter
     @work_load_list : Array(Float32)
-    @sym_gen : SymbolGenerator?
-    @slice : Array({Int32, Int32})
+    @sym_gen : Symbol::Generator?
+    @slices : Array({Int32, Int32})
     @param_name_set : Set(String)
     @cur_exec_grp : DataParallelExecutorGroup?
 

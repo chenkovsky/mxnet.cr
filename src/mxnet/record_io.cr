@@ -1,14 +1,13 @@
-class MXNet
+module MXNet
   class RecordIO
-    include IO
     enum IOFlag
       IOWrite
       IORead
     end
-    @record_io_handle : RecordIOHandle
+    @record_io_handle : LibMXNet::RecordIOHandle
 
     def initialize(@uri : String, @flag : IOFlag)
-      @record_io_handle = RecordIOHandle.null
+      @record_io_handle = LibMXNet::RecordIOHandle.null
       @is_open = false
       open
     end
@@ -52,16 +51,14 @@ class MXNet
       Bytes.new result, size
     end
 
-    alias Encoder = IO::ByteFormat::BigEndian
-
     def pack(header : IRHeader, s : Bytes) : Bytes
       io = IO::Memory.new
-      Encoder.encode(label.size, io)
+      IO::ByteFormat::BigEndian.encode(label.size, io)
       header.label.each do |l|
-        Encoder.encode(l, io)
+        IO::ByteFormat::BigEndian.encode(l, io)
       end
-      Encoder.encode(header.id, io)
-      Encoder.encode(header.id2, io)
+      IO::ByteFormat::BigEndian.encode(header.id, io)
+      IO::ByteFormat::BigEndian.encode(header.id2, io)
       io.write_utf8 s
       io.flush
       io.close
@@ -70,16 +67,16 @@ class MXNet
 
     def unpack(s : Bytes) : {IRHeader, Bytes}
       io = IO::Memory.new s, writable: false
-      flag = Encoder.decode(Int32, io)
-      label = (0...flag).map { |idx| Encoder.decode(Float32, io) }
-      id = Encoder.decode(Int32, io)
-      id2 = Encoder.decode(Int32, io)
+      flag = IO::ByteFormat::BigEndian.decode(Int32, io)
+      label = (0...flag).map { |idx| IO::ByteFormat::BigEndian.decode(Float32, io) }
+      id = IO::ByteFormat::BigEndian.decode(Int32, io)
+      id2 = IO::ByteFormat::BigEndian.decode(Int32, io)
       str = io.read_utf8
       io.close
       return IRHeader.new(label, id, id2), str
     end
 
-    class IndexedRecordIO < RecordIO
+    class Indexed < RecordIO
       @idx_path : String
 
       def initialize(@idx_path, uri, flag)

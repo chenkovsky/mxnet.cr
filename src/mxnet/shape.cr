@@ -1,6 +1,6 @@
 module MXNet
   struct Shape
-    include Enumerate(MXUInt)
+    include Enumerable(MXUInt)
     @shape : Array(MXUInt)
     getter :shape
 

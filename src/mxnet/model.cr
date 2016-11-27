@@ -2,6 +2,10 @@ require "time"
 
 module MXNet
   module Model
+    # epoch, symbol, arg_params, aux_states
+    alias EpochEndCallback = Int32, Symbol, Hash(String, NDArray), Hash(String, NDArray) -> Void
+    alias BatchEndCallback = Int32, Int32, Metric::EvalMetric -> Void
+
     def self.save_check_point(prefix : String, epoch : Int32, symbol : Symbol,
                               arg_params : Hash(String, NDArray),
                               aux_params : Hash(String, NDArray))

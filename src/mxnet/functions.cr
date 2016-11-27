@@ -24,7 +24,7 @@ module MXNet
     end
 
     getter :name, :func_type, :handle
-    @handle : FunctionHandle
+    @handle : LibMXNet::FunctionHandle
     @name : String
     @description : String
     @args : Array(Argument)
@@ -191,7 +191,7 @@ module MXNet
       Functions[name]
     end
 
-    private macro def_functions(*names)
+    macro def_functions(*names)
         {% for name, index in names %}
         F_{{name.id}} = Functions["_{{name.id}}"]
         {% end %}
@@ -208,7 +208,7 @@ module MXNet
   end
 
   class NDArray
-    private macro def_unary(*names)
+    macro def_unary(*names)
         {% for name, index in names %}
         def {{name.id}} : NDArray
             Function.invoke_unary(Function::F_{{name.id}}, self)
@@ -216,7 +216,7 @@ module MXNet
         {% end %}
     end
 
-    private macro def_binary(*names)
+    macro def_binary(*names)
         {% for name, index in names %}
         def {{name.id}}(rhs) : NDArray
             Function.invoke_binary(Function::F_{{name.id}}, self, rhs)

@@ -1,7 +1,7 @@
 module MXNet
   class NDArray
     getter :handle
-    @handle : NDArrayHandle
+    @handle : LibMXNet::NDArrayHandle
     @writable : Bool
 
     def writable?

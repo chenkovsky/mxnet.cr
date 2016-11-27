@@ -1,4 +1,5 @@
 module MXNet
+  # Symbolic Executor component of MXNet
   class Executor
     private def self.dict(name : Array(String), arrays : Array(NDArray))
       raise MXError.new "Duplicate names detected" unless names.to_set.size == names.size
@@ -15,11 +16,12 @@ module MXNet
     @arg_dict : Hash(String, NDArray)?
     @grad_dict : Hash(String, NDArray)?
     @aux_dict : Hash(String, NDArray)?
+    alias MXMonitorCallback = String, NDArray -> Void
     @monitor_callback : MXMonitorCallback?
 
     @ctx : Context?
     @grad_req : (Array(String) | Hash(String, String))?
-    @group2ctx : Hash(String, Context)
+    @group2ctx : Hash(String, Context)?
     protected def initialize(@handle, @symbol)
       @outputs = get_outputs
     end
@@ -128,7 +130,13 @@ module MXNet
     end
 
     def moinitor_callback=(callback : MXMonitorCallback)
-      check_call LibMXNet.mx_executor_set_monitor_callback(@handle, callback)
+      @monitor_callback = callback
+      boxed_data = Box.box(callback)
+      check_call LibMXNet.mx_executor_set_monitor_callback(@handle,
+        ->(s : UInt8*, arr : NDArrayHandle, data : Void*) {
+          data_as_callback = Box(typeof(callback)).unbox(data)
+          data_as_callback.call(String.new s, NDArray.new arr)
+        }, boxed_data)
     end
 
     def arg_dict

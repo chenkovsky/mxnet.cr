@@ -1,6 +1,8 @@
 module MXNet
   class AttrScope
     # Attribute scoping support for symbolic API.
+    getter :attr
+
     def initialize(@attr : Hash(String, String) = {} of String => String)
     end
 
@@ -16,10 +18,9 @@ module MXNet
       @@current.get(attr)
     end
 
-    def self.with(attr)
-      old_attr_scope = @@current
-      @attr = @@current.attr.merge(@attr)
-      @@current = attr
+    def self.with(attr_scope)
+      old_attr_scope = @@current.clone
+      @@current.attr.merge(attr_scope.attr)
       begin
         yield
       ensure

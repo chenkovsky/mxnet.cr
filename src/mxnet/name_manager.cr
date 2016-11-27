@@ -9,21 +9,21 @@ module MXNet
       begin
         yield
       ensure
-        @current = old_manager
+        @@current = old_manager
       end
     end
 
     def initialize
-      @count = {} of String => Int32
+      @counter = {} of String => Int32
     end
 
     def get(name : String?, hint : String) : String
       if name.nil?
         if !@counter.has_key? hint
-          @count[hint] = 0
+          @counter[hint] = 0
         end
-        generated_name = "#{hint}#{@count[hint]}"
-        @count[hint] += 1
+        generated_name = "#{hint}#{@counter[hint]}"
+        @counter[hint] += 1
         generated_name
       else
         name

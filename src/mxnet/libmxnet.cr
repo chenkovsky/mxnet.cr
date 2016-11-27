@@ -19,8 +19,8 @@ lib LibMXNet
   type BucketKey = Void*
 
   struct NativeOpInfo
-    forward : Int32, Float**, Int32*, UInt16**, Int32*, Void* -> Void
-    backward : Int32, Float**, Int32*, UInt16**, Int32*, Void* -> Void
+    forward : Int32, Float32**, Int32*, UInt16**, Int32*, Void* -> Void
+    backward : Int32, Float32**, Int32*, UInt16**, Int32*, Void* -> Void
     infer_shape : Int32, Int32*, UInt16**, Void* -> Void
     list_outputs : UInt8***, Void* -> Void
     list_arguments : UInt8***, Void* -> Void

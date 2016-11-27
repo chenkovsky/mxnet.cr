@@ -1,5 +1,5 @@
 require "./mxnet/*"
 
-module Mxnet
+module MXNet
   # TODO Put your code here
 end

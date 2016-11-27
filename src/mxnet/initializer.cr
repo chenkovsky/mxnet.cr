@@ -56,9 +56,9 @@ module MXNet
     protected def init_beta(method : Method, arr : NDArray)
       arr.set(0_f32)
     end
-    protected abstract def initWeight(method : Method, arr : NDArray)
+    protected abstract def init_weight(method : Method, arr : NDArray)
 
-    protected def initDefault(method : Method, arr : NDArray)
+    protected def init_default(method : Method, arr : NDArray)
       raise MXError.new "Unknown initialization pattern for #{method}."
     end
 

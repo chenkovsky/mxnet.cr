@@ -2,6 +2,7 @@ module MXNet
   module Callback
     # Callback functions that can be used to track various status during epoch.
     extend self
+    @@logger = Logger.new STDOUT
 
     # Callback to checkpoint the model to prefix every epoch.
     # Parameters
@@ -40,7 +41,7 @@ module MXNet
           metric = param.eval_metric.as(Metric::EvalMetric)
           name_val = metric.name_value
           name_value.each do |name, value|
-            logging.info("Iter[#{param.epoch}] Batch[#{param.nbatch}] Train-#{name}=#{value}")
+            @@logger.info("Iter[#{param.epoch}] Batch[#{param.nbatch}] Train-#{name}=#{value}")
           end
           if auto_reset
             metric.reset
@@ -82,10 +83,10 @@ module MXNet
               name_value = metric.name_value
               metric.reset
               name_value.each do |name, value|
-                logging.info "Epoch[#{param.epoch}] Batch [#{param.count}]\tSpeed: #{param.speed} samples/sec\tTrain-#{param.name}=#{param.value}"
+                @@logger.info "Epoch[#{param.epoch}] Batch [#{param.count}]\tSpeed: #{param.speed} samples/sec\tTrain-#{param.name}=#{param.value}"
               end
             else
-              logging.info "Iter[#{param.epoch}] Batch [#{count}]\tSpeed: #{speed} samples/sec"
+              @@logger.info "Iter[#{param.epoch}] Batch [#{count}]\tSpeed: #{speed} samples/sec"
             end
             @tic = Time.time
           end

@@ -2,6 +2,10 @@ require "logger"
 
 module MXNet
   class Symbol
+    abstract class Generator
+      abstract def generate(key) : Symbol
+    end
+
     @handle : LibMXNet::SymbolHandle
 
     def initialize(@handle)
@@ -11,41 +15,40 @@ module MXNet
       LibMXNet.mx_symbol_free(@handle)
     end
 
-    private macro def_op(f_name, sym_func)
+    macro def_op(sym_func, **kwargs)
+
         private SF_{{sym_func.id}} = SymbolFunction["{{sym_func.id}}"]
         private SF_{{sym_func.id}}Scalar = SymbolFunction["{{sym_func.id}}Scalar"]
-        def {{f_name.id}}(other : Symbol)
+        {% if kwargs[:inst_op] %}
+        def {{kwargs[:inst_op].id}}(other : Symbol)
             SF_{{sym_func.id}}.call(self, other)
         end
 
-        def {{f_name.id}}(other : Number)
+        def {{kwargs[:inst_op].id}}(other : Number)
             SF_{{sym_func.id}}Scalar.call(self, scalar: other.to_s)
         end
-    end
-
-    private macro def_static_op(f_name, sym_func)
-        private SF_{{sym_func.id}} = SymbolFunction["{{sym_func.id}}"]
-        private SF_{{sym_func.id}}Scalar = SymbolFunction["{{sym_func.id}}Scalar"]
-        def self.{{f_name.id}}(lhs : Symbol, rhs : Symbol)
+        {% end %}
+        {% if kwargs[:class_op] %}
+          def self.{{kwargs[:class_op].id}}(lhs : Symbol, rhs : Symbol)
             SF_{{sym_func.id}}.call(lhs, rhs)
-        end
+          end
 
-        def self.{{f_name.id}}(lhs : Symbol, rhs : Number)
-            SF_{{sym_func.id}}Scalar.call(lhs, scalar: rhs.to_s)
-        end
-        def self.{{f_name.id}}(lhs : Number, rhs : Symbol)
-            SF_{{sym_func.id}}Scalar.call(rhs, scalar: lhs.to_s)
-        end
+          def self.{{kwargs[:class_op].id}}(lhs : Symbol, rhs : Number)
+              SF_{{sym_func.id}}Scalar.call(lhs, scalar: rhs.to_s)
+          end
+          def self.{{kwargs[:class_op].id}}(lhs : Number, rhs : Symbol)
+              SF_{{sym_func.id}}Scalar.call(rhs, scalar: lhs.to_s)
+          end
+        {% end %}
     end
 
-    def_op :+, :_Plus
-    def_op :-, :_Minus
-    def_op :*, :_Mul
-    def_op :/, :_Div
-    def_op :**, :_Power
-    def_static_op :max, :_Maximum
-    def_static_op :min, :_Minimum
-    def_static_op :power, :_Power
+    def_op :_Plus, inst_op: :+
+    def_op :_Minus, inst_op: :-
+    def_op :_Mul, inst_op: :*
+    def_op :_Div, inst_op: :/
+    def_op :_Power, inst_op: :**, class_op: :power
+    def_op :_Maximum, class_op: :max
+    def_op :_Minimum, class_op: :min
 
     def clone
       handle = SymbolHandle.null
@@ -568,7 +571,7 @@ module MXNet
   end
 end
 
-class Number
+struct Number
   macro def_sym_op(f_name, sym_func)
     private SF_{{sym_func.id}}Scalar = SymbolFunction["{{sym_func.id}}Scalar"]
     def {{f_name.id}}(other : Symbol)
