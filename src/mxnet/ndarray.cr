@@ -1,5 +1,9 @@
 module MXNet
   class NDArray
+    def to_unsafe
+      @handle
+    end
+
     @handle : LibMXNet::NDArrayHandle
     @writable : Bool
 
@@ -14,13 +18,13 @@ module MXNet
       set val
     end
 
-    def self.zeros(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXRealT)
+    def self.zeros(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXFloat)
       arr = empty(shape, ctx, dtype)
       arr.fill 0_f32
       arr
     end
 
-    def self.ones(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXRealT)
+    def self.ones(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXFloat)
       arr = empty(shape, ctx, dtype)
       arr.fill 1_f32
       arr
@@ -135,7 +139,11 @@ module MXNet
       Context.new Context::DeviceType.new(dev_type), dev_id
     end
 
-    def self.empty(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXRealT)
+    def self.empty(shape : Shape | Array(Int32) | Nil = nil, ctx : Context? = nil, dtype = MXFloat)
+      if shape.nil?
+        MXNet.check_call LibMXNet.mx_ndarray_create_none(out hdl)
+        return NDArray.new hdl
+      end
       ctx_ =
         if ctx.nil?
           Context.default_ctx
@@ -150,13 +158,7 @@ module MXNet
       return NDArray.new new_alloc_handle(shape_, ctx_, false, dtype)
     end
 
-    private def self.new_empty_handle
-      hdl = LibMXNet::NDArrayHandle.null
-      check_call(LibMXNet.mx_ndarray_create_none(out hdl))
-      return hdl
-    end
-
-    private def self.new_alloc_handle(shape : Shape, ctx : Context, delay_alloc : Bool, dtype = MXRealT)
+    private def self.new_alloc_handle(shape : Shape, ctx : Context, delay_alloc : Bool, dtype = MXFloat)
       MXNet.check_call(LibMXNet.mx_ndarray_create_ex(
         shape,
         shape.size,

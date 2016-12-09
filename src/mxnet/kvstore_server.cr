@@ -24,7 +24,7 @@ module MXNet
       def run
         boxed_data = Box.box(@controller)
         MXNet.check_call LibMXNet.mx_kv_store_run_server(@kv_store, ->(cmd_id, cmd_body, data) {
-          data_as_callback = Box(typeof(@controller)).unbox(data)
+          data_as_callback = Box(MXKVStoreServerController).unbox(data)
           data_as_callback.call(cmd_id, String.new cmd_body)
         }, boxed_data)
       end

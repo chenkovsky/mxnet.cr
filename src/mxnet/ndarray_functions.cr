@@ -23,16 +23,20 @@ module MXNet
       @accept_empty_mutate
     end
 
-    getter :name, :func_type, :handle
+    def to_unsafe
+      @handle
+    end
+
+    getter :name, :func_type, :num_mutate_vars, :use_vars_range, :scalar_range
     @handle : LibMXNet::FunctionHandle
     @name : String
     @description : String
     @args : Array(Argument)
     @return_type : String
-    @use_vars_range : Range(Int32, Int32)
-    @scalar_range : Range(Int32, Int32)
+    @use_vars_range : Range(UInt32, UInt32)
+    @scalar_range : Range(UInt32, UInt32)
     @accept_empty_mutate : Bool
-    @num_mutate_vars : Int32
+    @num_mutate_vars : UInt32
     @func_type : FunctionType
     private NDARRAY_ARG_BEFORE_SCALAR = 1
     private ACCEPT_EMPTY_MUTATE_TARGET = 1 << 2
@@ -43,21 +47,21 @@ module MXNet
 
       ndarray_arg_before_scalar = (type_mask & NDARRAY_ARG_BEFORE_SCALAR) != 0
       @use_vars_range = if ndarray_arg_before_scalar
-                          (0...num_use_vars)
+                          (0_u32...(num_use_vars.to_u32))
                         else
                           (num_scalars...(num_scalars + num_use_vars))
                         end
       @scalar_range = if ndarray_arg_before_scalar
-                        (num_use_vars...(num_use_vars + num_scalars))
+                        ((num_use_vars.to_u32)...(num_use_vars + num_scalars))
                       else
-                        (0...num_scalars)
+                        (0_u32...num_scalars)
                       end
       @func_type = if num_mutate_vars == 1 && num_use_vars == 2 && num_scalars == 0
-                     Binary
+                     FunctionType::Binary
                    elsif num_mutate_vars == 1 && num_use_vars == 1 && num_scalars == 0
-                     Unary
+                     FunctionType::Unary
                    else
-                     Generic
+                     FunctionType::Generic
                    end
     end
 
@@ -85,14 +89,12 @@ module MXNet
       raise MXError.new "call #{func.name} as binary function" if func.func_type != FunctionType::Binary
       output = if out_.nil?
                  raise MXError.new "argument out is required to call #{func.name}" unless func.accept_empty_mutate?
-                 arr = NDArray.empty
-                 add_dependency [lhs, rhs], [arr]
-                 arr
+                 NDArray.empty
                else
                  out_
                end
 
-      check_call(LibMXNet.mx_func_invoke(func.handle, [lhs.handle, rhs.handle], [] of MXFloat, [output.handle]))
+      MXNet.check_call(LibMXNet.mx_func_invoke(func.handle, [lhs.handle, rhs.handle], [] of MXFloat, [output.handle]))
       return output
     end
 
@@ -101,82 +103,69 @@ module MXNet
       raise MXError.new "call #{func.name} as unary function" if func.func_type != FunctionType::Unary
       output = if out_.nil?
                  raise MXError.new "argument out is required to call #{func.name}" unless func.accept_empty_mutate?
-                 arr = NDArray.empty
-                 add_dependency [src], [arr]
-                 arr
+                 NDArray.empty
                else
                  out_
                end
-      check_call(LibMXNet.mx_func_invoke(func.handle, [src.handle], [] of MXFloat, [output.handle]))
+      MXNet.check_call(LibMXNet.mx_func_invoke(func.handle, [src.handle], [] of MXFloat, [output.handle]))
     end
 
-    def invoke_generic(func : Function, *args, **kwargs) : NDArray
+    def self.invoke_generic(func : Function, *args, **kwargs) : Array(NDArray)
       raise MXError.new "call #{func.name} as generic function" if func.func_type != FunctionType::Generic
       if !kwargs.nil?
-        kwargs_h = kwargs.to_h
+        kwargs_h = kwargs.map { |k, v| {k.to_s, v} }.to_h
         if kwargs.has_key? :out
           out_ = kwargs[:out]
-          mutate_vars = if out_.is_a? NDArray
-                          out_.as(NDArray)
-                        else
-                          out_.as(Array(NDArray))
-                        end
-          kwargs_h.reject! :out
+          mutate_vars = out_.is_a?(NDArray) ? [out_.as(NDArray)] : out_.as(Array(NDArray))
+          kwargs_h.reject! "out"
         end
       else
         mutate_vars = nil
         kwargs_h = nil
       end
-      raise MXError.new "expect #{func.num_mutate_vars} in #{func.name}" unless mutate_vars.nil? || mutate_vars.length == func.num_mutate_vars
-      use_vars = func.use_vars_range.map { |x| args[x].as(NDArray) }
+      raise MXError.new "expect #{func.num_mutate_vars} in #{func.name}" unless mutate_vars.nil? || mutate_vars.size == func.num_mutate_vars
+      use_vars = func.use_vars_range.map { |x|
+        if args[x].is_a? NDArray
+          args[x].as(NDArray)
+        else
+          # @BUG
+          raise MXError.new "args[#{x}] not a valid var"
+        end
+      }
       scalar_vars = func.scalar_range.map { |x| args[x].as(MXFloat) }
       outputs = if mutate_vars.nil?
                   raise MXError.new "argument out is required to call #{func.name}" unless func.accept_empty_mutate?
-                  arr = Array(NDArray).new(func.num_mutate_vars) { |idx| NDArray.empty }
-                  add_dependency use_vars, arr
-                  arr
+                  Array(NDArray).new(func.num_mutate_vars) { |idx| NDArray.empty }
                 else
                   mutate_vars
                 end
       num_kwargs, kwarg_keys, kwarg_vals = if kwargs_h.nil?
-                                             {0, nil, nil}
+                                             {0, Pointer(Pointer(UInt8)).null, Pointer(Pointer(UInt8)).null}
                                            else
                                              {kwargs_h.size,
-                                               kwargs_h.keys.map { |x| x.to_unsafe },
-                                               kwargs_h.values.map { |x| x.to_s.to_unsafe }}
+                                               kwargs_h.keys.map { |x| x.to_unsafe }.to_unsafe,
+                                               kwargs_h.values.map { |x| x.to_s.to_unsafe }.to_unsafe}
                                            end
-      check_call(LibMXNet.mx_func_invoke_ex(
-        use_vars.map { |x| x.handle },
+      MXNet.check_call(LibMXNet.mx_func_invoke_ex(
+        func,
+        use_vars.map { |x| x.to_unsafe },
         scalar_vars,
-        outpus.map { |x| x.handle },
+        outputs.map { |x| x.to_unsafe },
         num_kwargs, kwarg_keys, kwarg_vals
       ))
       outputs
     end
 
     private def self.init_functions
-      function_num = MXUInt.new 0
-      function_handles = Pointer(FunctionHandle).null
-      check_call(LibMXNet.mx_list_functions(out function_num, out function_handles))
+      MXNet.check_call(LibMXNet.mx_list_functions(out function_num, out function_handles))
       functions = (0...function_num).map do |idx|
         f = function_handles[idx]
-        name = Pointer(UInt8).null
-        description = Pointer(UInt8).null
-        num_args = MXUInt.new 0
-        arg_names = Pointer(Pointer(UInt8)).null
-        arg_type_infos = Pointer(Pointer(UInt8)).null
-        arg_descriptions = Pointer(Pointer(UInt8)).null
-        return_type = Pointer(UInt8).null
-        check_call(LibMXNet.mx_func_get_info(f, out name, out description,
+        MXNet.check_call(LibMXNet.mx_func_get_info(f, out name, out description,
           out num_args, out arg_names,
           out arg_type_infos, out arg_descriptions,
           out return_type
         ))
-        num_use_vars = MXUInt.new 0
-        num_scalars = MXUInt.new 0
-        num_mutate_vars = MXUInt.new 0
-        type_mask = Int32.new 0
-        check_call(LibMXNet.mx_func_describe(f, out num_use_vars, out num_scalars, out num_mutate_vars, out type_mask))
+        MXNet.check_call(LibMXNet.mx_func_describe(f, out num_use_vars, out num_scalars, out num_mutate_vars, out type_mask))
         args = (0...num_args).map do |arg_idx|
           Argument.new String.new(arg_names[arg_idx]), String.new(arg_type_infos[arg_idx]), String.new(arg_descriptions[arg_idx])
         end
@@ -233,19 +222,19 @@ module MXNet
       Function.invoke_binary(Function::F_onehot_encode, self, out_, out_)
     end
 
-    def clip(min : Float64, max : Float64) : NDArray
+    def clip(min : MXFloat, max : MXFloat) : NDArray
       Function.invoke_generic(Function::F_clip, self, min, max)[0]
     end
 
-    def random_uniform(low : Float64, high : Float64) : NDArray
+    def random_uniform(low : MXFloat, high : MXFloat) : NDArray
       Function.invoke_generic(Function::F_sample_uniform, low: low, high: high, shape: shape, out: self)[0]
     end
 
-    def random_gaussian(loc : Float64, scale : Float64) : NDArray
+    def random_gaussian(loc : MXFloat, scale : MXFloat) : NDArray
       Function.invoke_generic(Function::F_sample_normal, loc: loc, scale: scale, shape: shape, out: self)[0]
     end
 
-    def set(value : Float64) : NDArray
+    def set(value : MXFloat) : NDArray
       Function.invoke_generic(Function::F_set_value, value, out: self)
       self
     end
@@ -254,7 +243,7 @@ module MXNet
       rhs.copy_to(self)
     end
 
-    def set(rhs : Array(Float64)) : NDArray
+    def set(rhs : Array(MXFloat)) : NDArray
       sync_copy_from(rhs)
       self
     end
@@ -287,7 +276,7 @@ module MXNet
       mul(rhs)
     end
 
-    def *(rhs : Float64) : NDArray
+    def *(rhs : MXFloat) : NDArray
       Function.invoke_generic(Function::F_mul_scalar, self, rhs)[0]
     end
 
@@ -295,7 +284,7 @@ module MXNet
       Function.invoke_binary(Function::F_mul, self, rhs, out: self)
     end
 
-    def mul!(rhs : Float64) : NDArray
+    def mul!(rhs : MXFloat) : NDArray
       Function.invoke_generic(Function::F_mul_scalar, self, rhs, out: self)[0]
     end
 
@@ -307,7 +296,7 @@ module MXNet
       div(rhs)
     end
 
-    def /(rhs : Float64) : NDArray
+    def /(rhs : MXFloat) : NDArray
       Function.invoke_generic(Function::F_div_scalar, self, rhs)[0]
     end
 
@@ -315,7 +304,7 @@ module MXNet
       Function.invoke_binary(Function::F_div, self, rhs, out: self)
     end
 
-    def div!(rhs : Float64) : NDArray
+    def div!(rhs : MXFloat) : NDArray
       Function.invoke_generic(Function::F_div_scalar, self, rhs, out: self)[0]
     end
 

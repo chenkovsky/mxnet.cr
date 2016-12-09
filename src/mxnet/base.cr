@@ -9,11 +9,10 @@ module MXNet
   end
 
   alias MXUInt = UInt32
-  alias MXFloat = Float64
+  alias MXFloat = Float32
   alias MXFloatP = MXFloat*
-  alias MXRealT = Float32
 
-  class MXNetError < Exception
+  class MXError < Exception
   end
 
   enum MXType
@@ -60,7 +59,7 @@ module MXNet
   end
 
   def self.check_call(ret)
-    raise MXNetError.new (String.new LibMXNet.mx_get_last_error) if ret != 0
+    raise MXError.new (String.new LibMXNet.mx_get_last_error) if ret != 0
   end
 
   private def self.notify_shutdown

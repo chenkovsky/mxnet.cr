@@ -51,13 +51,11 @@ module MXNet
     def_op :_Minimum, class_op: :min
 
     def clone
-      handle = SymbolHandle.null
       check_call LibMXNet.mx_symbol_copy(@handle, out handle)
       Symbol.new handle
     end
 
     def [](idx : Int32) : Symbol
-      handle = SymbolHandle.null
       check_call LibMXNet.mx_symbol_get_output(@handle, idx, out handle)
       Symbol.new handle
     end
@@ -77,7 +75,6 @@ module MXNet
     # Get a new grouped symbol whose output contains all the internal outputs of this symbol.
     # @return The internal of the symbol.
     def internals : Symbol
-      handle = SymbolHandle.null
       check_call LibMXNet.mx_symbol_get_internals(@handle, out handle)
       return Symbol.new handle
     end
@@ -85,8 +82,6 @@ module MXNet
     # List all outputs in the symbol.
     # @return : List of all the outputs.
     def outputs
-      arr = Pointer(UInt8*).null
-      size = MXUInt.new 0
       check_call LibMXNet.mx_symbol_list_outputs(@handle, out size, out arr)
       (0...size).each do |i|
         yield String.new(arr[i]), i
@@ -241,16 +236,6 @@ module MXNet
       else
         keys_c = keys.map { |x| x.to_unsafe }
       end
-      in_shape_size = MXUInt.new 0
-      in_shape_ndim = Pointer(MXUInt).null
-      in_shape_data = Pointer(MXUInt*).null
-      out_shape_size = MXUInt.new 0
-      out_shape_ndim = Pointer(MXUInt).null
-      out_shape_data = Pointer(MXUInt*).null
-      aux_shape_size = MXUInt.new 0
-      aux_shape_ndim = Pointer(MXUInt).null
-      aux_shape_data = Pointer(MXUInt*).null
-      complete = 0
       check_call LibMXNet.mx_symbol_infer_shape(@handle, ind_ptr.size - 1, keys_c, ind_ptr, values,
         out in_shape_size,
         out in_shape_ndim,
@@ -292,8 +277,6 @@ module MXNet
     # @param key  The key to get attribute from.
     # @return value The attribute value of the key, returns None if attribute do not exist.
     def attr(key : String) : String?
-      ret = Pointer(UInt8).null
-      success = 0
       check_call LibMXNet.mx_symbol_get_attr @handle, key, out ret, out success
       if success != 0
         String.new ret
@@ -315,7 +298,6 @@ module MXNet
     # Get a debug string.
     # @return Debug string of the symbol.
     def debug_str
-      c_str = Pointer(UInt8).null
       check_call LibMXNet.mx_symbol_print(@handle, out c_str)
       String.new c_str
     end
