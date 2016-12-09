@@ -4,25 +4,27 @@ module MXNet
       # a server node for the key value store
       @kv_store : KVStore
       @@logger = Logger.new STDOUT
-      alias MXKVStoreServerController = Int32, String -> Void
+      alias MXKVStoreServerController = Int32, String -> Nil
       @controller : MXKVStoreServerController
 
       def initialize(@kv_store)
         @controller = ->(cmd_id : Int32, cmd_body : String) {
-          @@logger.debug("Receive cmd_id: #{cmd_id}, cmd_body: #{cmd_body}")
+          @@logger.debug "Receive cmd_id: #{cmd_id}, cmd_body: #{cmd_body}"
           if cmd_id == 0
-            optimizer = Serializer.serializer.deserialize(Serializer.decode_base64_string(cmd_body))
+            optimizer = Optimizer.from_json cmd_body
             @kv_store.optimizer = optimizer
+            nil
           else
             @@logger.warn "Server #{@kv_store.rank}, unknown command (#{cmd_id}, #{cmd_body})"
+            nil
           end
         }
       end
 
       def run
         boxed_data = Box.box(@controller)
-        MXNet.check_call LibMXNet.mx_kv_store_run_server(@kv_store.handle, ->(cmd_id, cmd_body, data) {
-          data_as_callback = Box(typeof(callback)).unbox(data)
+        MXNet.check_call LibMXNet.mx_kv_store_run_server(@kv_store, ->(cmd_id, cmd_body, data) {
+          data_as_callback = Box(typeof(@controller)).unbox(data)
           data_as_callback.call(cmd_id, String.new cmd_body)
         }, boxed_data)
       end

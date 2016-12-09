@@ -4,7 +4,8 @@ module MXNet
     @shape : Array(MXUInt)
     getter :shape
 
-    def initialize(@shape)
+    def initialize(shape : Array(MXUInt) | Array(Int32))
+      @shape = shape.map { |x| x.to_u32 }
     end
 
     def [](dim : Int32)
@@ -30,6 +31,8 @@ module MXNet
     def to_s
       "(#{@shape.join(",")})"
     end
+
+    delegate :to_unsafe, to: @shape
 
     def_equals_and_hash @shape
     delegate :each, to: @shape

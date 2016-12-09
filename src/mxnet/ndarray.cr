@@ -1,6 +1,5 @@
 module MXNet
   class NDArray
-    getter :handle
     @handle : LibMXNet::NDArrayHandle
     @writable : Bool
 
@@ -60,7 +59,7 @@ module MXNet
     def self.load(fname : String) : Hash(String, NDArray) | Array(NDArray)
       out_size = MXUInt.new 0
       out_name_size = MXUInt.new 0
-      handles = Pointer(NDArrayHandle).null
+      handles = Pointer(LibMXNet::NDArrayHandle).null
       names = Pointer(UInt8*).null
       check_call LibMXNet.mx_ndarray_load(fname, out out_size, out handles, out out_name_size, out names)
       if out_name_size == 0
@@ -84,7 +83,7 @@ module MXNet
     end
 
     def self.deserialize(bytes : Bytes)
-      handle = NDArrayHandle.null
+      handle = LibMXNet::NDArrayHandle.null
       check_call LibMXNet.mx_ndarray_load_from_raw_bytes(bytes, out handle)
       NDArray.new handle
     end
@@ -102,7 +101,7 @@ module MXNet
     end
 
     def [](slice : Range(Int, Int))
-      slice_handle = NDArrayHandle.null
+      slice_handle = LibMXNet::NDArrayHandle.null
       check_call LibMXNet.mx_ndarray_slice(@handle, slice.begin, slice.end, out slice_handle)
       return NDArray.new slice_handle, writable: @writable
     end
@@ -116,7 +115,7 @@ module MXNet
     end
 
     def reshape(dims : Array(Int32)) : NDArray
-      reshape_handle = NDArrayHandle.null
+      reshape_handle = LibMXNet::NDArrayHandle.null
       check_call LibMXNet.mx_ndarray_reshape(@handle, dims.size, dims, out reshape_handle)
       NDArray.new reshape_handle, writable: @writable
     end
@@ -137,39 +136,41 @@ module MXNet
     end
 
     def self.empty(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXRealT)
-      if ctx.nil?
-        ctx = Context.default_ctx
-      end
+      ctx_ =
+        if ctx.nil?
+          Context.default_ctx
+        else
+          ctx
+        end
       shape_ = if shape.is_a? Shape
                  shape
                else
                  Shape.new shape
                end
-      return NDArray.new new_alloc_handle(shape_, ctx, false, dtype)
+      return NDArray.new new_alloc_handle(shape_, ctx_, false, dtype)
     end
 
     private def self.new_empty_handle
-      hdl = NDArrayHandle.null
+      hdl = LibMXNet::NDArrayHandle.null
       check_call(LibMXNet.mx_ndarray_create_none(out hdl))
       return hdl
     end
 
     private def self.new_alloc_handle(shape : Shape, ctx : Context, delay_alloc : Bool, dtype = MXRealT)
-      hdl = NDArrayHandle.null
-      check_call(LibMXNet.mx_ndarray_create_ex(
+      MXNet.check_call(LibMXNet.mx_ndarray_create_ex(
         shape,
         shape.size,
         ctx.device_type.value,
         ctx.device_id,
         delay_alloc ? 1 : 0,
-        dtype_id(dtype),
+        MXType.dtype_id(dtype),
         out hdl
       ))
       return hdl
     end
 
     def finalize
-      check_call(LibMXNet.mx_ndarray_free(@handle))
+      MXNet.check_call(LibMXNet.mx_ndarray_free(@handle))
     end
 
     def inspect(io)

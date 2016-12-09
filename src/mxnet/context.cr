@@ -9,7 +9,7 @@ module MXNet
     @device_id : Int32
     @old_ctx : Context?
     getter :device_type, :device_id
-    @@default_ctx : Context? = Context.new DeviceType::CPU, 0
+    @@default_ctx : Context = Context.new DeviceType::CPU, 0
 
     def initialize(@device_type, @device_id = 0)
       @old_ctx = nil

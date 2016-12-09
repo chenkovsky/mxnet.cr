@@ -18,7 +18,6 @@ module MXNet
         when Dist_Async
           "dist_async"
         else
-          # when Dist
           "dist"
         end
       end
@@ -33,6 +32,10 @@ module MXNet
     def self.create(type t : Type = Type::Local)
       MXNet.check_call LibMXNet.mx_kv_store_create(t.to_s, out handle)
       KVStore.new handle
+    end
+
+    def to_unsafe
+      @handle
     end
 
     @handle : LibMXNet::KVStoreHandle
@@ -88,13 +91,11 @@ module MXNet
     end
 
     def num_workers
-      size = 0
       MXNet.check_call LibMXNet.mx_kv_store_get_group_size(@handle, out size)
       size
     end
 
     def rank
-      rank = 0
       MXNet.check_call LibMXNet.mx_kv_store_get_group_size(@handle, out rank)
       rank
     end

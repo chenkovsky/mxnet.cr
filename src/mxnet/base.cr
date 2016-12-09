@@ -37,6 +37,10 @@ module MXNet
       end
     end
 
+    def self.dtype_id(dtype)
+      from_dtype(dtype).value
+    end
+
     def to_dtype
       case self
       when MXType::Float32_T

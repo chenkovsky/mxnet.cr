@@ -15,11 +15,11 @@ module MXNet
         state = if states.has_key? index
                   states[index]
                 else
-                  new_state = optimizer.create_state(index, weight)
+                  new_state = @optimizer.create_state(index, weight)
                   states[index] = new_state
                   new_state
                 end
-        optimizer.update(index, weight, grad, state)
+        @optimizer.update(index, weight, grad, state)
       end
     end
 
