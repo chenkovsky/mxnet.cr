@@ -8,8 +8,8 @@ mxnet bind for crystal-lang
 install [MXNet](https://github.com/dmlc/mxnet)
 
 ```bash
-export LIBRARY_PATH=~/codes/mxnet/lib:$LIBRARY_PATH
-export LD_LIBRARY_PATH=~/codes/mxnet/lib:$LD_LIBRARY_PATH
+export LIBRARY_PATH=/path_to_mxnet/lib:$LIBRARY_PATH
+export LD_LIBRARY_PATH=/path_to_mxnet/lib:$LD_LIBRARY_PATH
 ```
 
 Add this to your application's `shard.yml`:
