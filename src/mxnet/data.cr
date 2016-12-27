@@ -1,9 +1,10 @@
 module MXNet
   module Data
     enum Type
-      MNIST
-      ImageRecord
-      CSV
+      MNISTIter
+      ImageRecordIter
+      ImageRecordUInt8Iter
+      CSVIter
     end
 
     class Batch
@@ -42,9 +43,10 @@ module MXNet
         end
       end
 
-      def_pack :mnist, Type::MNIST
-      def_pack :image_record, Type::ImageRecord
-      def_pack :csv, Type::CSV
+      def_pack :mnist, Type::MNISTIter
+      def_pack :image_record, Type::ImageRecordIter
+      def_pack :image_record_uint8, Type::ImageRecordUInt8Iter
+      def_pack :csv, Type::CSVIter
     end
   end
 end
