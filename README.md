@@ -5,6 +5,12 @@ mxnet bind for crystal-lang
 
 ## Installation
 
+install [MXNet](https://github.com/dmlc/mxnet)
+
+```bash
+export LIBRARY_PATH=~/codes/mxnet/lib:$LIBRARY_PATH
+export LD_LIBRARY_PATH=~/codes/mxnet/lib:$LD_LIBRARY_PATH
+```
 
 Add this to your application's `shard.yml`:
 
@@ -13,7 +19,6 @@ dependencies:
   mxnet:
     github: chenkovsky/mxnet.cr
 ```
-
 
 ## Usage
 
