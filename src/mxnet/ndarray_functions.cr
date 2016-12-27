@@ -75,15 +75,6 @@ module MXNet
       end
     end
 
-    private def self.add_dependency(froms : Array(NDArray), tos : Array(NDArray))
-      froms.each do |f|
-        tos.each do |t|
-          t.dependencies << from
-          t.dependencies.concat from
-        end
-      end
-    end
-
     def self.invoke_binary(func : Function, lhs : NDArray, rhs : NDArray, out out_ : NDArray? = nil) : NDArray
       raise MXError.new "out must be writable" unless output.nil? || output.writable?
       raise MXError.new "call #{func.name} as binary function" if func.func_type != FunctionType::Binary
@@ -94,7 +85,7 @@ module MXNet
                  out_
                end
 
-      MXNet.check_call(LibMXNet.mx_func_invoke(func.handle, [lhs.handle, rhs.handle], [] of MXFloat, [output.handle]))
+      MXNet.check_call(LibMXNet.mx_func_invoke(func, [lhs.to_unsafe, rhs.to_unsafe], [] of MXFloat, [output.to_unsafe]))
       return output
     end
 
@@ -107,21 +98,23 @@ module MXNet
                else
                  out_
                end
-      MXNet.check_call(LibMXNet.mx_func_invoke(func.handle, [src.handle], [] of MXFloat, [output.handle]))
+      MXNet.check_call(LibMXNet.mx_func_invoke(func, [src.to_unsafe], [] of MXFloat, [output.to_unsafe]))
     end
 
     def self.invoke_generic(func : Function, *args, **kwargs) : Array(NDArray)
       raise MXError.new "call #{func.name} as generic function" if func.func_type != FunctionType::Generic
-      if !kwargs.nil?
+      if kwargs.size == 0
+        mutate_vars = nil
+        kwargs_h = nil
+      else
         kwargs_h = kwargs.map { |k, v| {k.to_s, v} }.to_h
         if kwargs.has_key? :out
           out_ = kwargs[:out]
           mutate_vars = out_.is_a?(NDArray) ? [out_.as(NDArray)] : out_.as(Array(NDArray))
           kwargs_h.reject! "out"
+        else
+          mutate_vars = nil
         end
-      else
-        mutate_vars = nil
-        kwargs_h = nil
       end
       raise MXError.new "expect #{func.num_mutate_vars} in #{func.name}" unless mutate_vars.nil? || mutate_vars.size == func.num_mutate_vars
       use_vars = func.use_vars_range.map { |x|

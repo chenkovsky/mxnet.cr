@@ -1,6 +1,6 @@
 require "./spec_helper"
 
-describe Mxnet do
+describe MXNet do
   # TODO: Write tests
 
   it "works" do

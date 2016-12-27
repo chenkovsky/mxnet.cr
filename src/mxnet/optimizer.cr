@@ -4,6 +4,44 @@ module MXNet
       abstract def update(key : Int32, recv : NDArray, local : NDArray)
     end
 
+    OPTIMIZER_MAPPING = {} of String => Optimizer
+
+    Optimizer_JSON = {
+      lr_scale:           Hash(Int32, Float32),
+      num_update:         Int32,
+      index_update_count: Hash(Int32, Int32),
+      specialized:        Bool,
+      weight_set:         Set(Int32),
+      rescale_grad:       Float32,
+      symbol:             {nilable: true, type: Symbol},
+      idx2name:           {nilable: true, type: Hash(Int32, String)},
+    }
+
+    def serialize(io = IO::Memory.new)
+      prev_size = io.size
+      IO::ByteFormat::BigEndian.encode(0, io)
+      io << self.class.to_s
+      io << '\n'
+      to_json io
+      cur_size = io.size
+      io.seek prev_size
+      IO::ByteFormat::BigEndian.encode(cur_size - prev_size, io)
+      io.seek cur_size
+    end
+
+    def self.deserialize(io : IO) : Optimizer
+      line = io.gets
+      raise MXError.new "deserializing empty bytes" if line.nil?
+      OPTIMIZER_MAPPING[line].from_json(io)
+    end
+
+    def self.deserialize(buff : UInt8*) : Optimizer
+      body_size = IO::ByteFormat::BigEndian.decode(UInt32, Slice.new(buff, sizeof(UInt32)))
+      io = IO::Memory.new Slice(UInt8).new(buff, body_size)
+      io.seek sizeof(UInt32)
+      deserialize(io)
+    end
+
     class OptimizerUpdater < MXKVStoreUpdater
       @optimizer : Optimizer
 
@@ -36,14 +74,15 @@ module MXNet
     @symbol : Symbol?
     @idx2name : Hash(Int32, String)?
 
-    def initialize(@lr_scale = {} of Int32 => Float32,
-                   @num_update = 0,
-                   @index_update_count = {} of Int32 => Int32,
-                   @specialized = false,
-                   @weight_set = Set(Int32).new,
-                   @rescale_grad = 1,
-                   @symbol = nil,
-                   @idx2name = nil)
+    def initialize
+      @lr_scale = {} of Int32 => Float32
+      @num_update = 0
+      @index_update_count = {} of Int32 => Int32
+      @specialized = false
+      @weight_set = Set(Int32).new
+      @rescale_grad = 1
+      @symbol = nil
+      @idx2name = nil
     end
 
     abstract def update(index : Int32, weight : NDArray, grad : NDArray, state : State)

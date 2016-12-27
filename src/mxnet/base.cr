@@ -66,7 +66,7 @@ module MXNet
     check_call(LibMXNet.mx_notify_shutdown)
   end
 
-  def self.waitall
+  def self.wait_all
     check_call(LibMXNet.mx_ndarray_wait_all)
   end
 end

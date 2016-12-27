@@ -97,8 +97,6 @@ module MXNet
     # List all the arguments in the symbol.
     # @return Array of all the arguments.
     def arguments
-      arr = Pointer(UInt8*).null
-      size = MXUInt.new 0
       check_call LibMXNet.mx_symbol_list_arguments(@handle, out size, out arr)
       (0...size).each do |i|
         yield String.new(arr[i]), i

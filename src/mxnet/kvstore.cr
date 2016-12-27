@@ -104,10 +104,9 @@ module MXNet
       is_worker = 0
       MXNet.check_call LibMXNet.mx_kv_store_is_worker_node(out is_worker)
       if self.type.includes?("dist") && is_worker != 0
-        opt_serialized = Serializer.serializer.serialize(optimizer)
-        cmd = Serializer.encode_base64_string opt_serialized
-        @@logger.debug "Send optimizer to server: #{cmd}"
-        send_command_to_servers 0, cmd
+        io = optimizer.serialize
+        @@logger.debug "Send optimizer to server"
+        send_command_to_servers 0, io.buffer
       else
         self.updater = optimizer.updater
       end
@@ -132,7 +131,7 @@ module MXNet
       MXNet.check_call LibMXNet.mx_kv_store_set_barrier_before_exit(@handle, bool)
     end
 
-    def send_command_to_servers(head : Int32, body : String)
+    def send_command_to_servers(head : Int32, body : UInt8*)
       MXNet.check_call LibMXNet.mx_kv_store_send_command_to_servers(@handle, head, body)
     end
   end
