@@ -24,14 +24,15 @@ module MXNet
     Other_T   = -1
 
     def self.from_dtype(dtype)
-      if dtype == Float32
-        return MXType::Float32_T
-      elsif dtype == Float64
-        return MXType::Float64_T
-      elsif dtype == Int32
-        return MXType::Int32_T
+      case dtype
+      when Float32.class
+        MXType::Float32_T
+      when Float64.class
+        MXType::Float64_T
+      when Int32.class
+        MXType::Int32_T
       else
-        return MXType::Other_T
+        MXType::Other_T
       end
       # case dtype
       # when Float32
