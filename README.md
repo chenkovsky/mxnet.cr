@@ -23,6 +23,7 @@ dependencies:
 
 ## Usage
 
+It seems that MXNet NDArray current only supports Float32.
 
 ```crystal
 require "mxnet"

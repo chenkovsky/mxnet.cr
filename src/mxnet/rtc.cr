@@ -11,7 +11,7 @@ module MXNet
       input_nds = @inputs.values &.handle
       output_names = @outputs.keys &.to_unsafe
       output_nds = @outputs.values &.handle
-      check_call LibMXNet.mx_rtc_create(name, @inputs.size, @outputs.size,
+      MXNet.check_call LibMXNet.mx_rtc_create(name, @inputs.size, @outputs.size,
         input_names, output_names,
         input_nds, output_nds,
         @kernel, out rct_handle)
@@ -20,7 +20,7 @@ module MXNet
 
     def push(ins : Array(NDArray), outs : Array(NDArray),
              grid_dims : {Int32, Int32, Int32}, block_dims : {Int32, Int32, Int32})
-      check_call LibMXNet.mx_rtc_push(@rtc_handle,
+      MXNet.check_call LibMXNet.mx_rtc_push(@rtc_handle,
         ins.map &.handle,
         outs.map &.handle,
         grid_dims[0],
@@ -32,7 +32,7 @@ module MXNet
     end
 
     def finalize
-      check_call LibMXNet.mx_rtc_free(@rct_handle)
+      MXNet.check_call LibMXNet.mx_rtc_free(@rct_handle)
     end
   end
 end

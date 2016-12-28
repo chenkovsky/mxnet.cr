@@ -103,7 +103,7 @@ module MXNet
     private def get_outputs
       nd_handles = Pointer(NDArrayHandle).null
       size = MXUInt.new 0
-      check_call(LibMXNet.mx_executor_outputs(@handle, out size, out nd_handles))
+      MXNet.check_call(LibMXNet.mx_executor_outputs(@handle, out size, out nd_handles))
       (0...size).map do |idx|
         NDArray.new nd_handles[idx]
       end
@@ -116,23 +116,23 @@ module MXNet
           arr.copy_to(arg_dict[name])
         end
       end
-      check_call LibMXNet.mx_executor_forward(@handle, is_train)
+      MXNet.check_call LibMXNet.mx_executor_forward(@handle, is_train)
     end
 
     def backward(out_grads : Array(NDArray) = [] of NDArray)
       nd_array_handles = out_grads.map { |x| x.handle }
-      check_call LibMXNet.mx_executor_backward(@handle, nd_array_handles)
+      MXNet.check_call LibMXNet.mx_executor_backward(@handle, nd_array_handles)
     end
 
     def backward(out_grad : NDArray)
       nd_array_handles = [out_grad.handle]
-      check_call LibMXNet.mx_executor_backward(@handle, nd_array_handles)
+      MXNet.check_call LibMXNet.mx_executor_backward(@handle, nd_array_handles)
     end
 
     def moinitor_callback=(callback : MXMonitorCallback)
       @monitor_callback = callback
       boxed_data = Box.box(callback)
-      check_call LibMXNet.mx_executor_set_monitor_callback(@handle,
+      MXNet.check_call LibMXNet.mx_executor_set_monitor_callback(@handle,
         ->(s : UInt8*, arr : NDArrayHandle, data : Void*) {
           data_as_callback = Box(typeof(callback)).unbox(data)
           data_as_callback.call(String.new s, NDArray.new arr)
@@ -187,7 +187,7 @@ module MXNet
 
     def debug_str
       str = Pointer(UInt8).null
-      check_call LibMXNet.mx_executor_print(@handle, out str)
+      MXNet.check_call LibMXNet.mx_executor_print(@handle, out str)
       return String.new str
     end
   end

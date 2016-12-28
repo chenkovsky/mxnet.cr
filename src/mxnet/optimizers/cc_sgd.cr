@@ -31,7 +31,7 @@ module MXNet
         end
         @opt_creator = OptimizerCreator.null
         @opt_handle = OptimizerHandle.null
-        check_call LibMXNet.mx_optimizer_find_creator("ccsgd", out @opt_creator)
+        MXNet.check_call LibMXNet.mx_optimizer_find_creator("ccsgd", out @opt_creator)
         param_keys = ["momentum", "rescale_grad", "clip_gradient"].map &.to_unsafe
         param_vals = [@momentum, @rescale_gradient, @clip_gradient]
         check_call LibMXNet.mx_optimizer_create_optimizer(@opt_creator, param_keys.size, param_keys, param_vals, out @opt_handle)
@@ -47,7 +47,7 @@ module MXNet
              end
         lr *= @lr_scale.fetch(index, 1_f32)
         wd = get_wd(index, @wd)
-        check_call LibMXNet.mx_optimizer_update(@opt_handle, index, weight, grad, lr, wd)
+        MXNet.check_call LibMXNet.mx_optimizer_update(@opt_handle, index, weight, grad, lr, wd)
       end
 
       def create_state(index : Int32, weight : NDArray)

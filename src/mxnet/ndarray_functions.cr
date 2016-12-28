@@ -76,7 +76,7 @@ module MXNet
     end
 
     def self.invoke_binary(func : Function, lhs : NDArray, rhs : NDArray, out out_ : NDArray? = nil) : NDArray
-      raise MXError.new "out must be writable" unless output.nil? || output.writable?
+      raise MXError.new "out must be writable" unless out_.nil? || out_.writable?
       raise MXError.new "call #{func.name} as binary function" if func.func_type != FunctionType::Binary
       output = if out_.nil?
                  raise MXError.new "argument out is required to call #{func.name}" unless func.accept_empty_mutate?
@@ -90,7 +90,7 @@ module MXNet
     end
 
     def self.invoke_unary(func : Function, src : NDArray, out out_ : NDArray? = nil) : NDArray
-      raise MXError.new "out must be writable" unless output.nil? || output.writable?
+      raise MXError.new "out must be writable" unless out_.nil? || out_.writable?
       raise MXError.new "call #{func.name} as unary function" if func.func_type != FunctionType::Unary
       output = if out_.nil?
                  raise MXError.new "argument out is required to call #{func.name}" unless func.accept_empty_mutate?
@@ -99,6 +99,7 @@ module MXNet
                  out_
                end
       MXNet.check_call(LibMXNet.mx_func_invoke(func, [src.to_unsafe], [] of MXFloat, [output.to_unsafe]))
+      return output
     end
 
     def self.invoke_generic(func : Function, *args, **kwargs) : Array(NDArray)
@@ -184,9 +185,9 @@ module MXNet
     def_functions :square, :exp, :log, :cos, :sin, :max, :min
     def_functions :sum, :argmax_channel, :choose_element_0index
     def_functions :sample_uniform, :sample_normal, :set_value
-    def_functions :plus, :plus_scalar, :minus, :_minus_scalar, :mul
+    def_functions :plus, :plus_scalar, :minus, :minus_scalar, :mul
     def_functions :mul_scalar, :div, :div_scalar
-    def_functions :rminus_scalar, :rdiv_scalar
+    def_functions :rminus_scalar, :rdiv_scalar, :copyto
   end
 
   class NDArray
@@ -234,6 +235,11 @@ module MXNet
 
     def set(rhs : NDArray) : NDArray
       rhs.copy_to(self)
+    end
+
+    private def sync_copy_from(source : Array(Float32))
+      raise MXError.new "array size #{source.size} do not match the size of NDArray #{size}" unless source.size == size
+      MXNet.check_call LibMXNet.mx_ndarray_sync_copy_from_cpu(@handle, source, source.size)
     end
 
     def set(rhs : Array(MXFloat)) : NDArray

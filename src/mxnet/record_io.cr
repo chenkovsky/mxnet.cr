@@ -15,9 +15,9 @@ module MXNet
     def open
       case @flag
       when IOFlag::IOWrite
-        check_call LibMXNet.mx_record_io_writer_create(uri, out @record_io_handle)
+        MXNet.check_call LibMXNet.mx_record_io_writer_create(uri, out @record_io_handle)
       when IOFlag::IORead
-        check_call LibMXNet.mx_record_io_reader_create(uri, out @record_io_handle)
+        MXNet.check_call LibMXNet.mx_record_io_reader_create(uri, out @record_io_handle)
       end
       @is_open = true
     end
@@ -26,9 +26,9 @@ module MXNet
       if @is_open
         case flag
         when IOFlag::IOWrite
-          check_call LibMXNet.mx_record_io_writer_free(@handle)
+          MXNet.check_call LibMXNet.mx_record_io_writer_free(@handle)
         when IOFlag::IORead
-          check_call LibMXNet.mx_record_io_reader_free(@handle)
+          MXNet.check_call LibMXNet.mx_record_io_reader_free(@handle)
         end
       end
     end
@@ -40,14 +40,14 @@ module MXNet
 
     def write(buf : Bytes)
       raise MXError.new "recordio is not writable" unless @flag == IOFlag::IOWrite
-      check_call LibMXNet.mx_record_io_writer_write_record(@handle, buf, buf.bytesize)
+      MXNet.check_call LibMXNet.mx_record_io_writer_write_record(@handle, buf, buf.bytesize)
     end
 
     def read : Bytes
       raise MXError.new "recordio is not readable" unless @flag == IOFlag::IORead
       result = Pointer(UInt8).null
       size = 0
-      check_call LibMXNet.mx_record_io_reader_read_record(@handle, out result, out size)
+      MXNet.check_call LibMXNet.mx_record_io_reader_read_record(@handle, out result, out size)
       Bytes.new result, size
     end
 
@@ -110,13 +110,13 @@ module MXNet
 
       def seek(idx : Int32)
         raise MXError.new "flag should be IORead" unless @flag == IORead
-        check_call LibMXNet.mx_record_io_reader_seek(@record_io_handle, @idx[isx])
+        MXNet.check_call LibMXNet.mx_record_io_reader_seek(@record_io_handle, @idx[isx])
       end
 
       def tell
         raise MXError.new "flag should be IOWrite" unless @flag == IOWrite
         pos = 0
-        check_call LibMXNet.mx_record_io_writer_tell(@record_io_handle, out pos)
+        MXNet.check_call LibMXNet.mx_record_io_writer_tell(@record_io_handle, out pos)
         return pos
       end
 

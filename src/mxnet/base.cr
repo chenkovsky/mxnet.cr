@@ -4,13 +4,12 @@ module MXNet
   @@logger = Logger.new(STDOUT)
   @@logger.progname = "MXNetCrystal"
 
-  def logger
+  def self.logger
     @@logger
   end
 
   alias MXUInt = UInt32
   alias MXFloat = Float32
-  alias MXFloatP = MXFloat*
 
   class MXError < Exception
   end
@@ -23,7 +22,7 @@ module MXNet
     Int32_T   =  4
     Other_T   = -1
 
-    def self.from_dtype(dtype)
+    private def self.from_dtype(dtype)
       case dtype
       when Float32.class
         MXType::Float32_T
@@ -34,23 +33,13 @@ module MXNet
       else
         MXType::Other_T
       end
-      # case dtype
-      # when Float32
-      #   MXType::Float32_T
-      # when Float64
-      #   MXType::Float64_T
-      # when Int32
-      #   MXType::Int32_T
-      # else
-      #   MXType::Other_T
-      # end
     end
 
     def self.dtype_id(dtype)
       from_dtype(dtype).value
     end
 
-    def to_dtype
+    private def to_dtype
       case self
       when MXType::Float32_T
         Float32
@@ -73,10 +62,10 @@ module MXNet
   end
 
   private def self.notify_shutdown
-    check_call(LibMXNet.mx_notify_shutdown)
+    MXNet.check_call(LibMXNet.mx_notify_shutdown)
   end
 
   def self.wait_all
-    check_call(LibMXNet.mx_ndarray_wait_all)
+    MXNet.check_call(LibMXNet.mx_ndarray_wait_all)
   end
 end

@@ -51,12 +51,12 @@ module MXNet
     def_op :_Minimum, class_op: :min
 
     def clone
-      check_call LibMXNet.mx_symbol_copy(@handle, out handle)
+      MXNet.check_call LibMXNet.mx_symbol_copy(@handle, out handle)
       Symbol.new handle
     end
 
     def [](idx : Int32) : Symbol
-      check_call LibMXNet.mx_symbol_get_output(@handle, idx, out handle)
+      MXNet.check_call LibMXNet.mx_symbol_get_output(@handle, idx, out handle)
       Symbol.new handle
     end
 
@@ -75,14 +75,14 @@ module MXNet
     # Get a new grouped symbol whose output contains all the internal outputs of this symbol.
     # @return The internal of the symbol.
     def internals : Symbol
-      check_call LibMXNet.mx_symbol_get_internals(@handle, out handle)
+      MXNet.check_call LibMXNet.mx_symbol_get_internals(@handle, out handle)
       return Symbol.new handle
     end
 
     # List all outputs in the symbol.
     # @return : List of all the outputs.
     def outputs
-      check_call LibMXNet.mx_symbol_list_outputs(@handle, out size, out arr)
+      MXNet.check_call LibMXNet.mx_symbol_list_outputs(@handle, out size, out arr)
       (0...size).each do |i|
         yield String.new(arr[i]), i
       end
@@ -97,7 +97,7 @@ module MXNet
     # List all the arguments in the symbol.
     # @return Array of all the arguments.
     def arguments
-      check_call LibMXNet.mx_symbol_list_arguments(@handle, out size, out arr)
+      MXNet.check_call LibMXNet.mx_symbol_list_arguments(@handle, out size, out arr)
       (0...size).each do |i|
         yield String.new(arr[i]), i
       end
@@ -119,7 +119,7 @@ module MXNet
     def auxiliary_states
       arr = Pointer(UInt8*).null
       size = MXUInt.new 0
-      check_call LibMXNet.mx_symbol_list_auxiliary_states(@handle, out size, out arr)
+      MXNet.check_call LibMXNet.mx_symbol_list_auxiliary_states(@handle, out size, out arr)
       (0...size).each do |i|
         yield String.new(arr[i]), i
       end
@@ -169,7 +169,7 @@ module MXNet
       out_type_data = Pointer(Int32).null
       aux_type_data = Pointer(Int32).null
       complete = 0
-      check_call LibMXNet.mx_symbol_infer_type(@handle, values.size,
+      MXNet.check_call LibMXNet.mx_symbol_infer_type(@handle, values.size,
         keys_c, values,
         out in_type_size, out in_type_data,
         out out_type_size, out out_type_data,
@@ -234,7 +234,7 @@ module MXNet
       else
         keys_c = keys.map { |x| x.to_unsafe }
       end
-      check_call LibMXNet.mx_symbol_infer_shape(@handle, ind_ptr.size - 1, keys_c, ind_ptr, values,
+      MXNet.check_call LibMXNet.mx_symbol_infer_shape(@handle, ind_ptr.size - 1, keys_c, ind_ptr, values,
         out in_shape_size,
         out in_shape_ndim,
         out in_shape_data,
@@ -275,7 +275,7 @@ module MXNet
     # @param key  The key to get attribute from.
     # @return value The attribute value of the key, returns None if attribute do not exist.
     def attr(key : String) : String?
-      check_call LibMXNet.mx_symbol_get_attr @handle, key, out ret, out success
+      MXNet.check_call LibMXNet.mx_symbol_get_attr @handle, key, out ret, out success
       if success != 0
         String.new ret
       else
@@ -296,14 +296,14 @@ module MXNet
     # Get a debug string.
     # @return Debug string of the symbol.
     def debug_str
-      check_call LibMXNet.mx_symbol_print(@handle, out c_str)
+      MXNet.check_call LibMXNet.mx_symbol_print(@handle, out c_str)
       String.new c_str
     end
 
     # Set the attribute of the symbol.
     def attr=(attr : Hash(String, String))
       attr.each do |k, v|
-        check_call LibMXNet.mx_symbol_set_attr(@handle, k, v)
+        MXNet.check_call LibMXNet.mx_symbol_set_attr(@handle, k, v)
       end
     end
 
@@ -319,7 +319,7 @@ module MXNet
     #        - /path-to/my-local-symbol
     # @see Symbol.load : Used to load symbol from file.
     def save(fname : String)
-      check_call LibMXNet.mx_symbol_save_to_file @handle, fname
+      MXNet.check_call LibMXNet.mx_symbol_save_to_file @handle, fname
     end
 
     private def symbol_handle(symbols : Array(Symbol))
@@ -335,7 +335,7 @@ module MXNet
     # @return the resulting symbol
     private def compose(name, symbols : Array(Symbol) | Hash(String, Symbol))
       keys, args = symbol_handle(symbols)
-      check_call LibMXNet.mx_symbol_compose(@handle, name, keys, args)
+      MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, keys, args)
     end
 
     def bind(ctx : Context, grad_req : BindReq, shapes : Hash(String, Shape), types : Hash(String, MXType)? = nil) : Executor
@@ -436,7 +436,7 @@ module MXNet
                       else
                         shared_exec.handle
                       end
-      check_call LibMXNet.mx_executor_bind_ex(@handle,
+      MXNet.check_call LibMXNet.mx_executor_bind_ex(@handle,
         ctx.device_type_id,
         ctx.device_id,
         ctx_map_keys.size,
@@ -467,13 +467,13 @@ module MXNet
 
     def to_json(io)
       js = Bytes.null
-      check_call LibMXNet.mx_symbol_save_to_json(@handle, out js)
+      MXNet.check_call LibMXNet.mx_symbol_save_to_json(@handle, out js)
       io << js
     end
 
     def self.variable(name : String, attr : Hash(String, String)? = nil) : Symbol
       handle = SymbolHandle.null
-      check_call LibMXNet.mx_symbol_create_variable(name, out handle)
+      MXNet.check_call LibMXNet.mx_symbol_create_variable(name, out handle)
       sym = Symbol.new handle
       sys.attr = AttrScipe.current.get(attr)
       sym
@@ -486,7 +486,7 @@ module MXNet
     def self.group(symbols : Array(Symbol)) : Symbol
       ihandles = symbols.map &.handle
       handle = SymbolHandle.null
-      check_call LibMXNet.mx_symbol_create_group(ihandles, out handle)
+      MXNet.check_call LibMXNet.mx_symbol_create_group(ihandles, out handle)
       Symbol.new handle
     end
 
@@ -522,7 +522,7 @@ module MXNet
         end
       end
       sym_handle = SymbolHandle.null
-      check_call LibMXNet.mx_symbol_create_atomic_symbol(function.handle, param_keys, param_vals, out sym_handle)
+      MXNet.check_call LibMXNet.mx_symbol_create_atomic_symbol(function.handle, param_keys, param_vals, out sym_handle)
       s = Symbol.new sym_handle
       attr_all = AttrScope.current.get(attr)
       s.attr = attr_all
@@ -534,7 +534,7 @@ module MXNet
 
     def self.load(fname : String) : Symbol
       handle = SymbolHandle.null
-      check_call LibMXNet.mx_symbol_create_from_file fname, out handle
+      MXNet.check_call LibMXNet.mx_symbol_create_from_file fname, out handle
       Symbol.new handle
     end
 
@@ -545,7 +545,7 @@ module MXNet
              else
                string_or_io
              end
-      check_call LibMXNet.mx_symbol_create_from_json(json, out handle)
+      MXNet.check_call LibMXNet.mx_symbol_create_from_json(json, out handle)
       Symbol.new handle
     end
   end

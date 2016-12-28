@@ -31,7 +31,7 @@ module MXNet
     end
 
     def self.seed(seed_state : Int32)
-      check_call LibMXNet.mx_random_seed(seed_state)
+      MXNet.check_call LibMXNet.mx_random_seed(seed_state)
     end
   end
 end
