@@ -10,6 +10,8 @@ module MXNet
 
   alias MXUInt = UInt32
   alias MXFloat = Float32
+  alias MXScalar = Float32 | Float64 | UInt8 | Int32
+  alias MXArray = Array(Float32) | Array(Float64) | Array(UInt8) | Array(Int32)
 
   class MXError < Exception
   end
@@ -21,6 +23,23 @@ module MXNet
     UInt8_T   =  3
     Int32_T   =  4
     Other_T   = -1
+
+    def array(size : Int32) : MXArray
+      case self
+      when MXType::Float32_T
+        Array(Float32).new(size, 0_f32)
+      when MXType::Float64_T
+        Array(Float64).new(size, 0_f64)
+      when MXType::Float16_T
+        Array(Float32).new(size, 0_f32)
+      when MXType::UInt8_T
+        Array(UInt8).new(size, 0_u8)
+      when MXType::Int32_T
+        Array(Int32).new(size, 0)
+      else
+        raise MXError.new "invalid MXType: #{self}"
+      end
+    end
 
     private def self.from_dtype(dtype)
       case dtype

@@ -14,23 +14,23 @@ module MXNet
     protected def initialize(@handle, @writable = true)
     end
 
-    def fill(val : MXFloat | NDArray | Array(MXFloat))
+    def fill(val : MXScalar | NDArray | MXArray)
       set val
     end
 
-    def self.zeros(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXFloat)
+    def self.zeros(shape : Shape | Array(Int32), ctx : Context? = nil, dtype : MXType = MXType::Float32_T)
       arr = empty(shape, ctx, dtype)
-      arr.fill 0_f32
+      arr.fill 0
       arr
     end
 
-    def self.ones(shape : Shape | Array(Int32), ctx : Context? = nil, dtype = MXFloat)
+    def self.ones(shape : Shape | Array(Int32), ctx : Context? = nil, dtype : MXType = MXType::Float32_T)
       arr = empty(shape, ctx, dtype)
-      arr.fill 1_f32
+      arr.fill 1
       arr
     end
 
-    def self.array(src_arr : Array(Float32), shape : Shape | Array(Int32), ctx : Context? = nil)
+    def self.array(src_arr : MXArray, shape : Shape | Array(Int32), ctx : Context? = nil, dtype : MXType = MXType::Float32_T)
       arr = empty(shape, ctx)
       arr.fill(src_arr)
       arr
@@ -46,12 +46,14 @@ module MXNet
       array0 = arrays[0]
       axis0 = array0.shape[0]
       shape = array0.shape[1...array0.shape.size]
+      dtype = array0.dtype
       (1...arrays.size).each do |idx|
         arr_i = arrays[idx]
         raise MXError.new "shape mismatch between #{arr_i.shape} and #{shape}" unless shape == arr_i.shape[1...arr_i.shape.size]
+        raise MXError.new "dtype mismatch between #{arr_i.dtype} and #{dtype}" unless dtype == arr_i.dtype
         axis0 += arr_i.shape[0]
       end
-      output = NDArray.empty([axis0] + shape.shape, ctx)
+      output = NDArray.empty([axis0] + shape.shape, ctx, dtype)
       axis0 = 0
       arrays.each do |arr|
         output[axis0...(axis0 + arr.shape[0])] = arr
@@ -92,9 +94,9 @@ module MXNet
       MXNet.check_call LibMXNet.mx_ndarray_save(fname, handles.size, handles, keys)
     end
 
-    def self.deserialize(bytes : Bytes)
+    def self.deserialize(bytes : Bytes, writable : Bool = true)
       MXNet.check_call LibMXNet.mx_ndarray_load_from_raw_bytes(bytes, bytes.size, out handle)
-      NDArray.new handle
+      NDArray.new handle, writable
     end
 
     def serialize : Bytes
@@ -133,7 +135,7 @@ module MXNet
       NDArray.new reshape_handle, writable: @writable
     end
 
-    def reshape(shape : Shape)
+    def reshape(shape : Shape) : NDArray
       reshape(shape.shape)
     end
 
@@ -143,10 +145,10 @@ module MXNet
 
     def context : Context
       MXNet.check_call LibMXNet.mx_ndarray_get_context(@handle, out dev_type_id, out dev_id)
-      Context.new Context::DeviceType.new(dev_type), dev_id
+      Context.new Context::DeviceType.new(dev_type_id), dev_id
     end
 
-    def self.empty(shape : Shape | Array(Int32) | Array(UInt32) | Nil = nil, ctx : Context? = nil, dtype = MXFloat)
+    def self.empty(shape : Shape | Array(Int32) | Array(UInt32) | Nil = nil, ctx : Context? = nil, dtype : MXType = MXType::Float32_T)
       if shape.nil?
         MXNet.check_call LibMXNet.mx_ndarray_create_none(out hdl)
         return NDArray.new hdl
@@ -156,14 +158,14 @@ module MXNet
       return NDArray.new new_alloc_handle(shape_, ctx_, false, dtype)
     end
 
-    private def self.new_alloc_handle(shape : Shape, ctx : Context, delay_alloc : Bool, dtype = MXFloat)
+    private def self.new_alloc_handle(shape : Shape, ctx : Context, delay_alloc : Bool, dtype : MXType = MXType::Float32_T)
       MXNet.check_call(LibMXNet.mx_ndarray_create_ex(
         shape,
         shape.size,
         ctx.device_type.value,
         ctx.device_id,
         delay_alloc ? 1 : 0,
-        MXType.dtype_id(dtype),
+        dtype.value,
         out hdl
       ))
       return hdl
@@ -175,17 +177,30 @@ module MXNet
 
     def inspect(io)
       shape_info = shape.map { |x| x.to_s }.join("x")
-      io << "<#{self.class} #{shape_info} #{@context}>"
+      io << "<#{self.class} #{shape_info} #{context}>"
     end
 
     def size
       shape.product
     end
 
-    def to_a
+    def self.array_pointer(arr : MXArray)
+      case arr
+      when Array(Float64)
+        arr.to_unsafe.as(Void*)
+      when Array(UInt8)
+        arr.to_unsafe.as(Void*)
+      when Array(Int32)
+        arr.to_unsafe.as(Void*)
+      else
+        arr.to_unsafe.as(Void*)
+      end
+    end
+
+    def to_a : MXArray
       size_ = size
-      data = Array(Float32).new(size_, 0_f32)
-      MXNet.check_call LibMXNet.mx_ndarray_sync_copy_to_cpu(@handle, data, size_)
+      data = dtype.array size_.to_i32
+      MXNet.check_call LibMXNet.mx_ndarray_sync_copy_to_cpu(@handle, MXNet::NDArray.array_pointer(data), size_)
       return data
     end
 
@@ -212,7 +227,7 @@ module MXNet
       copy_to(@context)
     end
 
-    def shape
+    def shape : Shape
       MXNet.check_call LibMXNet.mx_ndarray_get_shape(@handle, out ndim, out data)
       Shape.new (0...ndim).map { |i| data[i] }
     end
@@ -220,15 +235,15 @@ module MXNet
     def ==(other : Object)
       case other
       when NDArray
-        ohter.shape == shape && other.to_a == to_a
+        other.shape == shape && other.to_a == to_a
       else
         false
       end
     end
 
-    def dtype
+    def dtype : MXType
       MXNet.check_call LibMXNet.mx_ndarray_get_dtype(@handle, out dtype_id)
-      to_dtype MXType.new dtype_id
+      MXType.new dtype_id
     end
   end
 end

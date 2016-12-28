@@ -109,13 +109,13 @@ module MXNet
         kwargs_h = nil
       else
         kwargs_h = kwargs.map { |k, v| {k.to_s, v} }.to_h
-        if kwargs.has_key? :out
+        if !kwargs[:out].nil?
           out_ = kwargs[:out]
           mutate_vars = out_.is_a?(NDArray) ? [out_.as(NDArray)] : out_.as(Array(NDArray))
-          kwargs_h.reject! "out"
         else
           mutate_vars = nil
         end
+        kwargs_h.reject! "out"
       end
       raise MXError.new "expect #{func.num_mutate_vars} in #{func.name}" unless mutate_vars.nil? || mutate_vars.size == func.num_mutate_vars
       use_vars = func.use_vars_range.map { |x|
@@ -176,18 +176,18 @@ module MXNet
 
     macro def_functions(*names)
         {% for name, index in names %}
-        F_{{name.id}} = Functions["_{{name.id}}"]
+        F_{{name.id}} = Functions["{{name.id}}"]
         {% end %}
-      end
+    end
 
-    def_functions :onehot_encode, :clip, :sqrt, :rsqrt, :dot
+    def_functions :_onehot_encode, :clip, :sqrt, :rsqrt, :dot
     def_functions :norm, :abs, :sign, :round, :ceil, :floor
     def_functions :square, :exp, :log, :cos, :sin, :max, :min
     def_functions :sum, :argmax_channel, :choose_element_0index
-    def_functions :sample_uniform, :sample_normal, :set_value
-    def_functions :plus, :plus_scalar, :minus, :minus_scalar, :mul
-    def_functions :mul_scalar, :div, :div_scalar
-    def_functions :rminus_scalar, :rdiv_scalar, :copyto
+    def_functions :_sample_uniform, :_sample_normal, :_set_value
+    def_functions :_plus, :_plus_scalar, :_minus, :_minus_scalar, :_mul
+    def_functions :_mul_scalar, :_div, :_div_scalar
+    def_functions :_rminus_scalar, :_rdiv_scalar, :_copyto
   end
 
   class NDArray
@@ -209,27 +209,27 @@ module MXNet
 
     def_unary :sqrt, :rsqrt, :norm, :abs, :sign, :round, :ceil, :floor, :square
     def_unary :exp, :log, :cos, :sin, :max, :min, :sum, :argmax_channel
-    def_binary :plus, :minus, :mul, :div
+    def_binary :_plus, :_minus, :_mul, :_div
     def_binary :dot, :choose_element_0index
 
-    def onehotEncode(out out_ : NDArray) : NDArray
-      Function.invoke_binary(Function::F_onehot_encode, self, out_, out_)
+    def onehot_encode(out out_ : NDArray) : NDArray
+      Function.invoke_binary(Function::F__onehot_encode, self, out_, out_)
     end
 
     def clip(min : MXFloat, max : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_clip, self, min, max)[0]
+      Function.invoke_generic(Function::F_clip, self, min, max, out: nil)[0]
     end
 
     def random_uniform(low : MXFloat, high : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_sample_uniform, low: low, high: high, shape: shape, out: self)[0]
+      Function.invoke_generic(Function::F__sample_uniform, low: low, high: high, shape: shape, out: self)[0]
     end
 
     def random_gaussian(loc : MXFloat, scale : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_sample_normal, loc: loc, scale: scale, shape: shape, out: self)[0]
+      Function.invoke_generic(Function::F__sample_normal, loc: loc, scale: scale, shape: shape, out: self)[0]
     end
 
-    def set(value : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_set_value, value, out: self)
+    def set(value : MXScalar) : NDArray
+      Function.invoke_generic(Function::F__set_value, MXFloat.new(value), out: self)
       self
     end
 
@@ -242,73 +242,86 @@ module MXNet
       MXNet.check_call LibMXNet.mx_ndarray_sync_copy_from_cpu(@handle, source, source.size)
     end
 
-    def set(rhs : Array(MXFloat)) : NDArray
-      sync_copy_from(rhs)
+    def set(rhs : MXArray) : NDArray
+      rhs_ = if rhs.is_a? Array(MXFloat)
+               rhs
+             else
+               rhs.map { |e| MXFloat.new e }
+             end
+      sync_copy_from(rhs_)
       self
     end
 
     def +(rhs : NDArray) : NDArray
-      plus(rhs)
+      _plus(rhs)
+    end
+
+    def +(rhs : Float) : NDArray
+      Function.invoke_generic(Function::F__plus_scalar, self, rhs, out: nil)[0]
     end
 
     def plus!(rhs : NDArray) : NDArray
-      Function.invoke_binary(Function::F_plus, self, rhs, out: self)
+      Function.invoke_binary(Function::F__plus, self, rhs, out: self)
+    end
+
+    def plus!(rhs : Float) : NDArray
+      Function.invoke_generic(Function::F__plus_scalar, self, rhs, out: self)[0]
     end
 
     def -(rhs : NDArray) : NDArray
-      minus(rhs)
+      _minus(rhs)
     end
 
     def -(rhs : Float) : NDArray
-      Function.invoke_generic(Function::F_minus_scalar, self, rhs)[0]
+      Function.invoke_generic(Function::F__minus_scalar, self, rhs, out: nil)[0]
     end
 
     def minus!(rhs : NDArray) : NDArray
-      Function.invoke_binary(Function::F_minus, self, rhs, out: self)
+      Function.invoke_binary(Function::F__minus, self, rhs, out: self)
     end
 
     def minus!(rhs : Float) : NDArray
-      Function.invoke_generic(Function::F_minus_scalar, self, rhs, out: self)[0]
+      Function.invoke_generic(Function::F__minus_scalar, self, rhs, out: self)[0]
     end
 
     def *(rhs : NDArray) : NDArray
-      mul(rhs)
+      _mul(rhs)
     end
 
     def *(rhs : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_mul_scalar, self, rhs)[0]
+      Function.invoke_generic(Function::F__mul_scalar, self, rhs, out: nil)[0]
     end
 
     def mul!(rhs : NDArray) : NDArray
-      Function.invoke_binary(Function::F_mul, self, rhs, out: self)
+      Function.invoke_binary(Function::F__mul, self, rhs, out: self)
     end
 
     def mul!(rhs : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_mul_scalar, self, rhs, out: self)[0]
+      Function.invoke_generic(Function::F__mul_scalar, self, rhs, out: self)[0]
     end
 
     def - : NDArray
-      mul -1.0
+      self.* -1.0_f32
     end
 
     def /(rhs : NDArray) : NDArray
-      div(rhs)
+      _div(rhs)
     end
 
     def /(rhs : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_div_scalar, self, rhs)[0]
+      Function.invoke_generic(Function::F__div_scalar, self, rhs, out: nil)[0]
     end
 
     def div!(rhs : NDArray) : NDArray
-      Function.invoke_binary(Function::F_div, self, rhs, out: self)
+      Function.invoke_binary(Function::F__div, self, rhs, out: self)
     end
 
     def div!(rhs : MXFloat) : NDArray
-      Function.invoke_generic(Function::F_div_scalar, self, rhs, out: self)[0]
+      Function.invoke_generic(Function::F__div_scalar, self, rhs, out: self)[0]
     end
 
     private def _copy_to(other : NDArray) : NDArray
-      Function.invoke_unary(Function::F_copyto, self, out: other)
+      Function.invoke_unary(Function::F__copyto, self, out: other)
     end
   end
 end
@@ -318,15 +331,15 @@ struct Float
     other + self
   end
 
-  def -(other : NDArray)
-    MXNet::Function.invoke_generic(MXNet::Function::F_rminus_scalar, other, self)[0]
+  def -(other : MXNet::NDArray)
+    MXNet::NDArray::Function.invoke_generic(MXNet::NDArray::Function::F__rminus_scalar, other, self, out: nil)[0]
   end
 
-  def *(other : NDArray)
+  def *(other : MXNet::NDArray)
     other * self
   end
 
-  def /(other : NDArray)
-    MXNet::Function.invoke_generic(MXNet::Function::F_rdiv_scalar, other, self)[0]
+  def /(other : MXNet::NDArray)
+    MXNet::NDArray::Function.invoke_generic(MXNet::NDArray::Function::F__rdiv_scalar, other, self, out: nil)[0]
   end
 end
