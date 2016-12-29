@@ -17,6 +17,10 @@ module MXNet
       @counter = {} of String => Int32
     end
 
+    def self.[](name, hint)
+      @@current.get(name, hint)
+    end
+
     def get(name : String?, hint : String) : String
       if name.nil?
         if !@counter.has_key? hint

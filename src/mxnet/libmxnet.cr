@@ -318,7 +318,7 @@ lib LibMXNet
   # param name name of the variable
   # param out pointer to the created symbol handle
   # return 0 when success, -1 when failure happens
-  fun mx_symbol_create_variable = MXSymbolCreateVariable(name : UInt8*, out_ : SymbolHandle) : Int32
+  fun mx_symbol_create_variable = MXSymbolCreateVariable(name : UInt8*, out_ : SymbolHandle*) : Int32
   # Create a Symbol by grouping list of symbols together
   # param num_symbols number of symbols to be grouped
   # param symbols array of symbol handles

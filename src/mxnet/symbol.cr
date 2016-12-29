@@ -2,11 +2,15 @@ require "logger"
 
 module MXNet
   class Symbol
+    @handle : LibMXNet::SymbolHandle
+
+    def to_unsafe
+      @handle
+    end
+
     abstract class Generator
       abstract def generate(key) : Symbol
     end
-
-    @handle : LibMXNet::SymbolHandle
 
     def initialize(@handle)
     end
@@ -117,8 +121,6 @@ module MXNet
     # A common example of auxiliary state is the moving_mean and moving_variance in BatchNorm.
     # Most operators do not have Auxiliary states.
     def auxiliary_states
-      arr = Pointer(UInt8*).null
-      size = MXUInt.new 0
       MXNet.check_call LibMXNet.mx_symbol_list_auxiliary_states(@handle, out size, out arr)
       (0...size).each do |i|
         yield String.new(arr[i]), i
@@ -162,13 +164,6 @@ module MXNet
       else
         keys_c = Pointer(UInt8*).null
       end
-      in_type_size = MXUInt.new 0
-      out_type_size = MXUInt.new 0
-      aux_type_size = MXUInt.new 0
-      in_type_data = Pointer(Int32).null
-      out_type_data = Pointer(Int32).null
-      aux_type_data = Pointer(Int32).null
-      complete = 0
       MXNet.check_call LibMXNet.mx_symbol_infer_type(@handle, values.size,
         keys_c, values,
         out in_type_size, out in_type_data,
@@ -323,19 +318,22 @@ module MXNet
     end
 
     private def symbol_handle(symbols : Array(Symbol))
-      return nil, symbols.map { |x| x.handle }
+      return nil, symbols.map { |x| x.to_unsafe }
     end
     private def symbol_handle(symbols : Hash(String, Symbol))
-      return symbols.keys, symbols.values.map { |x| x.handle }
+      return symbols.keys.map { |x| x.to_unsafe }, symbols.values.map { |x| x.to_unsafe }
+    end
+    private def symbol_handle(symbols : Hash(::Symbol, Symbol))
+      return symbols.keys.map { |x| x.to_s.to_unsafe }, symbols.values.map { |x| x.to_unsafe }
     end
     # Compose symbol on inputs.
     # This call mutates the current symbol.
     # @param name resulting symbol name
     # @param symbols provide positional arguments
     # @return the resulting symbol
-    private def compose(name, symbols : Array(Symbol) | Hash(String, Symbol))
+    protected def compose(name, symbols : Array(Symbol) | Hash(::Symbol, Symbol))
       keys, args = symbol_handle(symbols)
-      MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, keys, args)
+      MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, args.size, keys, args)
     end
 
     def bind(ctx : Context, grad_req : BindReq, shapes : Hash(String, Shape), types : Hash(String, MXType)? = nil) : Executor
@@ -466,16 +464,14 @@ module MXNet
     end
 
     def to_json(io)
-      js = Bytes.null
       MXNet.check_call LibMXNet.mx_symbol_save_to_json(@handle, out js)
       io << js
     end
 
     def self.variable(name : String, attr : Hash(String, String)? = nil) : Symbol
-      handle = SymbolHandle.null
       MXNet.check_call LibMXNet.mx_symbol_create_variable(name, out handle)
       sym = Symbol.new handle
-      sys.attr = AttrScipe.current.get(attr)
+      sym.attr = AttrScope[attr]
       sym
     end
 
@@ -485,61 +481,16 @@ module MXNet
 
     def self.group(symbols : Array(Symbol)) : Symbol
       ihandles = symbols.map &.handle
-      handle = SymbolHandle.null
       MXNet.check_call LibMXNet.mx_symbol_create_group(ihandles, out handle)
       Symbol.new handle
     end
 
-    def self.create_symbol_general(operator : String | SymbolFunction,
-                                   name : String,
-                                   attr : Hash(String, String),
-                                   symbols : Array(Symbol),
-                                   kwargs : Hash(String, Symbol | String)) : Symbol
-      symbol_kwargs = kwargs.select { |k, v| v.is_a? Symbol }
-      str_kwargs = kwargs.select { |k, v| v.is_a? String }
-      raise MXError.new "#{operator} can only accept input symbols either as positional or keyword arguments, not both" unless symbols.size == 0 || symbol_kwargs.size == 0
-      function = if operator.is_a? String
-                   SymbolFunction[operator]
-                 else
-                   operator
-                 end
-      if symbols.empty?
-        raise MXError.new ("#{operator} support variable length of Symbol arguments.\n" +
-                           "Please pass all the input Symbols via positional arguments instead of keyword arguments.") unless function.key_var_name_args.nil? || function.key_var_num_args.size == 0
-
-        param_keys = str_kwargs.keys.map &.to_unsafe
-        param_vals = str_kwargs.values.map &.to_unsafe
-      else
-        add_key_var_num_args = !function.key_var_num_args.nil? && !function.key_var_num_args.size == 0 && !str_kwargs.has_key? function.key_var_num_args
-        param_keys, param_vals = if add_key_var_num_args
-                                   {[function.key_var_num_args.to_unsafe], [symbols.size.to_s.to_unsafe]}
-                                 else
-                                   {[] of UInt8*, [] of UInt8*}
-                                 end
-        str_kwargs.each do |k, v|
-          param_keys << k.to_unsafe
-          param_vals << v.to_unsafe
-        end
-      end
-      sym_handle = SymbolHandle.null
-      MXNet.check_call LibMXNet.mx_symbol_create_atomic_symbol(function.handle, param_keys, param_vals, out sym_handle)
-      s = Symbol.new sym_handle
-      attr_all = AttrScope.current.get(attr)
-      s.attr = attr_all
-      hint = operator.downcase
-      managed_name = NameManager.current.get(name, hint)
-      s.compose managed_name, symbols
-      s
-    end
-
     def self.load(fname : String) : Symbol
-      handle = SymbolHandle.null
       MXNet.check_call LibMXNet.mx_symbol_create_from_file fname, out handle
       Symbol.new handle
     end
 
     def self.from_json(string_or_io : String | IO)
-      handle = SymbolHandle.null
       json = if string_or_io.is_a? IO
                string_or_io.read
              else
@@ -547,6 +498,56 @@ module MXNet
              end
       MXNet.check_call LibMXNet.mx_symbol_create_from_json(json, out handle)
       Symbol.new handle
+    end
+
+    protected def create(operator : String | Function, *args, **kwargs)
+      function = operator.is_a?(String) ? Function[operator] : operator
+      param_keys = [] of String
+      param_vals = [] of String
+      symbol_kwargs = {} of ::Symbol => Symbol
+      symbol_args = [] of Symbol
+      args.each do |x|
+        symbol_args << x if x.is_a? Symbol
+      end
+      name = kwargs[:name]?
+      attr = kwargs[:attr]?
+      if function.key_var_num_args && kwargs[function.key_var_num_args.as(String)]?.nil?
+        param_keys << function.key_var_num_args.as(String)
+        param_vals << args.size.to_s
+      end
+      kwargs.each do |k, v|
+        if k == :name || k == :attr
+          next
+        end
+        if v.is_a? Symbol
+          symbol_kwargs[k] = v
+        else
+          param_keys << k.to_s
+          param_vals << v.to_s
+        end
+      end
+      c_param_keys = param_keys.map { |s| s.to_unsafe }
+      c_param_vals = param_vals.map { |s| s.to_unsafe }
+      MXNet.check_call LibMXNet.mx_symbol_create_atomic_symbol(
+        function,
+        param_keys.size,
+        c_param_keys,
+        c_param_vals,
+        out sym_handle
+      )
+      if symbol_args.size != 0 && symbol_kwargs.size != 0
+        raise MXError.new "#{function.name} can only accept input Symbols either as positional or keyword arguments, not both"
+      end
+      s = Symbol.new sym_handle
+      s.attr = AttrScope[attr]
+      hint = function.name.downcase
+      name = NameManager[name, hint]
+      if symbol_kwargs.size > 0
+        s.compose name, symbol_kwargs
+      else
+        s.compose name, symbol_args
+      end
+      return s
     end
   end
 end

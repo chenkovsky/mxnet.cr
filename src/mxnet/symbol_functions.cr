@@ -7,21 +7,51 @@ module MXNet
     end
     getter :name
 
-    @@functions = Hash(String, Symbol::Function).new
+    Functions = Hash(String, Symbol::Function).new
     init_functions.each do |f|
-      @@functions[f.name] = f
+      Functions[f.name] = f
+      STDERR.puts f.to_s
+      STDERR.puts "================"
     end
 
-    def self.[](name)
-      @@functions[name]
+    macro def_functions(*names)
+        {% for name, index in names %}
+        F_{{name.id}} = Functions["{{name.id}}"]
+        {% end %}
     end
+
+    def_functions :Activation
 
     class Argument
       def initialize(@name : String, @type : String, @desc : String)
       end
+
+      def to_s(io)
+        io << "@param #{@name} : #{@type} ##{@desc}"
+      end
     end
 
-    def initialize(@handle : LibMXNet::AtomicSymbolCreator, @name : String, @desc : String, @ret_type : String, @key_var_num_args : String, @arguments : Array(Argument))
+    def to_unsafe
+      @handle
+    end
+
+    getter :name
+    getter :key_var_num_args
+    @key_var_num_args : String?
+
+    def initialize(@handle : LibMXNet::AtomicSymbolCreator, @name : String, @desc : String, @ret_type : String, key_var_num_args : String?, @arguments : Array(Argument))
+      @key_var_num_args = key_var_num_args.nil? || key_var_num_args.size == 0 ? nil : key_var_num_args
+    end
+
+    def to_s(io)
+      io << "@func #{@name}\n"
+      io << "@return #{@ret_type}\n"
+      io << "@key_var_num_args #{@key_var_num_args}\n"
+      io << "##{@desc}\n"
+      @arguments.each do |arg|
+        arg.to_s io
+        io << "\n"
+      end
     end
 
     def num_args
@@ -51,6 +81,19 @@ module MXNet
         end
         Symbol::Function.new handle, String.new(name), String.new(desc), String.new(ret_type), String.new(key_var_num_args), args
       end
+    end
+  end
+
+  class Symbol
+    enum ActType
+      Relu
+      Sigmoid
+      Tanh
+      Softrelu
+    end
+
+    def activation(act_type : ActType = ActType::Relu, name : String? = nil)
+      create(Function::F_Activation, name: name, act_type: act_type.to_s.downcase)
     end
   end
 end
