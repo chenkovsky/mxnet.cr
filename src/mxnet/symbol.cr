@@ -19,41 +19,6 @@ module MXNet
       LibMXNet.mx_symbol_free(@handle)
     end
 
-    macro def_op(sym_func, **kwargs)
-
-        private SF_{{sym_func.id}} = SymbolFunction["{{sym_func.id}}"]
-        private SF_{{sym_func.id}}Scalar = SymbolFunction["{{sym_func.id}}Scalar"]
-        {% if kwargs[:inst_op] %}
-        def {{kwargs[:inst_op].id}}(other : Symbol)
-            SF_{{sym_func.id}}.call(self, other)
-        end
-
-        def {{kwargs[:inst_op].id}}(other : Number)
-            SF_{{sym_func.id}}Scalar.call(self, scalar: other.to_s)
-        end
-        {% end %}
-        {% if kwargs[:class_op] %}
-          def self.{{kwargs[:class_op].id}}(lhs : Symbol, rhs : Symbol)
-            SF_{{sym_func.id}}.call(lhs, rhs)
-          end
-
-          def self.{{kwargs[:class_op].id}}(lhs : Symbol, rhs : Number)
-              SF_{{sym_func.id}}Scalar.call(lhs, scalar: rhs.to_s)
-          end
-          def self.{{kwargs[:class_op].id}}(lhs : Number, rhs : Symbol)
-              SF_{{sym_func.id}}Scalar.call(rhs, scalar: lhs.to_s)
-          end
-        {% end %}
-    end
-
-    def_op :_Plus, inst_op: :+
-    def_op :_Minus, inst_op: :-
-    def_op :_Mul, inst_op: :*
-    def_op :_Div, inst_op: :/
-    def_op :_Power, inst_op: :**, class_op: :power
-    def_op :_Maximum, class_op: :max
-    def_op :_Minimum, class_op: :min
-
     def clone
       MXNet.check_call LibMXNet.mx_symbol_copy(@handle, out handle)
       Symbol.new handle
