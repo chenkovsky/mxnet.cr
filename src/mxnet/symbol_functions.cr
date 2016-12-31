@@ -107,14 +107,14 @@ module MXNet
     end
 
     def activation(act_type : ActType = ActType::Relu, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_Activation, name: name, act_type: act_type.to_s.downcase, data: self, attr: attr)
+      Symbol.create(Function::F_Activation, name: name, act_type: act_type.to_s.downcase, data: self, attr: attr)
     end
 
     def batch_norm(data : Symbol, eps : MXFloat = 0.001,
                    momentum : MXFloat = 0.9,
                    fix_gamma : Bool = true,
                    use_global_stats : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_BatchNorm, eps: eps,
+      Symbol.create(Function::F_BatchNorm, eps: eps,
         momentum: momentum,
         fix_gamma: fix_gamma,
         use_global_stats: use_global_stats,
@@ -122,7 +122,7 @@ module MXNet
     end
 
     def block_grad(name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_BlockGrad, data: self, name: name, attr: attr)
+      Symbol.create(Function::F_BlockGrad, data: self, name: name, attr: attr)
     end
 
     private def axis_str(axis : Int32 | Array(Int32) | Nil = nil) : String
@@ -147,23 +147,23 @@ module MXNet
     end
 
     def sum(axis : Int32 | Array(Int32) | Nil = nil, keepdims : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_sum, src: self, name: name, axis: axis_str(axis), keepdims: keepdims, attr: attr)
+      Symbol.create(Function::F_sum, src: self, name: name, axis: axis_str(axis), keepdims: keepdims, attr: attr)
     end
 
     def broadcast_axis(axis : Int32 | Array(Int32) | Nil = nil, size : Int32 | Array(Int32) | Nil = nil, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_broadcast_axis, src: self, axis: axis_str(axis), size: axis_str(size), name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_axis, src: self, axis: axis_str(axis), size: axis_str(size), name: name, attr: attr)
     end
 
     def broadcast_to(shape : In32 | Array(Int32) | Nil = nil, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_broadcast_to, src: self, shape: axis_str(shape), name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_to, src: self, shape: axis_str(shape), name: name, attr: attr)
     end
 
     def cast(dtype : MXType, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_Cast, data: self, name: name, attr: attr)
+      Symbol.create(Function::F_Cast, data: self, name: name, attr: attr)
     end
 
     def self.concat(data : Array(Symbol), num_args : Int32, dim : Int32 = 1, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_concat, data: data, num_args: num_args, dim: dim, name: name, attr: attr)
+      Symbol.create(Function::F_concat, data: data, num_args: num_args, dim: dim, name: name, attr: attr)
     end
 
     def concat(other : Symbol, num_args : Int32, dim : Int32 = 1, name : String? = nil, attr : Hash(String, String)? = nil)
@@ -188,7 +188,7 @@ module MXNet
                     cudnn_tune : CudnnTune = CudnnTune::Off,
                     cudnn_off : Bool = false,
                     name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_cudnn_tune, data: self,
+      Symbol.create(Function::F_cudnn_tune, data: self,
         weight: weight, bias: bias, kernel: axis_str(kernel), num_filter: num_filter,
         stride: axis_str(stride),
         dilate: axis_str(dilate),
@@ -210,7 +210,7 @@ module MXNet
                     pad_size : UInt32 = 0,
                     is_multiply : Bool = true,
                     name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_Correlation, data1: self, data2: data,
+      Symbol.create(Function::F_Correlation, data1: self, data2: data,
         kernel_size: kernel_size,
         max_displacement: max_displacement,
         stride1: stride1,
@@ -228,18 +228,18 @@ module MXNet
              name : String? = nil, attr : Hash(String, String)? = nil)
       # 按照文档应该还能传一个symbol。但是似乎不对
       if crop_like
-        create(Function::F_Crop, data: self, num_args: 2, crop_like: crop_like, offset: axis_str(offset), center_crop: center_crop, name: name, attr: attr)
+        Symbol.create(Function::F_Crop, data: self, num_args: 2, crop_like: crop_like, offset: axis_str(offset), center_crop: center_crop, name: name, attr: attr)
       else
-        create(Function::F_Crop, data: self, num_args: 1, offset: axis_str(offset), h_w: axis_str(h_w), center_crop: center_crop, name: name, attr: attr)
+        Symbol.create(Function::F_Crop, data: self, num_args: 1, offset: axis_str(offset), h_w: axis_str(h_w), center_crop: center_crop, name: name, attr: attr)
       end
     end
 
     private def cross_device_copy(name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F__CrossDeviceCopy, data: self, name: name, attr: attr)
+      Symbol.create(Function::F__CrossDeviceCopy, data: self, name: name, attr: attr)
     end
 
     def custom(op_type : String, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F__CrossDeviceCopy, data: self, op_type: op_type, name: name, attr: attr)
+      Symbol.create(Function::F__CrossDeviceCopy, data: self, op_type: op_type, name: name, attr: attr)
     end
 
     def deconvolution(weight : Symbol, bias : Symbol,
@@ -253,7 +253,7 @@ module MXNet
                       workspace : UInt64 = 512,
                       no_bias : Bool = true,
                       name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_Deconvolution, data: self,
+      Symbol.create(Function::F_Deconvolution, data: self,
         weight: weight, bias: bias, kernel: axis_str(kernel),
         num_filter: num_filter, stride: axis_str(stride), pad: axis_str(pad), adj: axis_str(adj),
         target_shape: axis_str(target_shape), num_group: num_group,
@@ -261,49 +261,49 @@ module MXNet
     end
 
     def dropout(p : Float32 = 0.5, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_Dropout, data: self, p: p, name: name, attr: attr)
+      Symbol.create(Function::F_Dropout, data: self, p: p, name: name, attr: attr)
     end
 
     def broadcast_plus(rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_broadcast_plus, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_plus, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     def broadcast_minus(rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_broadcast_minus, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_minus, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     def broadcast_mul(rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_broadcast_mul, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_mul, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     def broadcast_div(rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_broadcast_div, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_div, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     def broadcast_power(rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_broadcast_power, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_power, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     macro def_op(sym_func, inst_op)
         def {{inst_op.id}}(other : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-            create(Function::F_{{sym_func.id}}, lhs: self, rhs: other, name: name, attr: attr)
+            Symbol.create(Function::F_{{sym_func.id}}, lhs: self, rhs: other, name: name, attr: attr)
         end
         def {{inst_op.id}}(other : Number, name : String? = nil, attr : Hash(String, String)? = nil)
-            create(Function::F_{{sym_func.id}}Scalar, self, scalar: other.to_s, name: name, attr: attr)
+            Symbol.create(Function::F_{{sym_func.id}}Scalar, self, scalar: other.to_s, name: name, attr: attr)
         end
     end
 
     macro def_class_op(sym_func, class_op)
         def self.{{class_op.id}}(lhs : Symbol, rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-          create(Function::F_{{sym_func.id}}, lhs: lhs, rhs: rhs, name: name, attr: attr)
+          Symbol.create(Function::F_{{sym_func.id}}, lhs: lhs, rhs: rhs, name: name, attr: attr)
         end
 
         def self.{{class_op.id}}(lhs : Symbol, rhs : Number, name : String? = nil, attr : Hash(String, String)? = nil)
-            create(Function::F_{{sym_func.id}}Scalar, src: lhs, scalar: rhs.to_s, name: name, attr: attr)
+            Symbol.create(Function::F_{{sym_func.id}}Scalar, src: lhs, scalar: rhs.to_s, name: name, attr: attr)
         end
 
         def self.{{class_op.id}}(lhs : Number, rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-            create(Function::F_{{sym_func.id}}Scalar, src: rhs, scalar: lhs.to_s, name: name, attr: attr)
+            Symbol.create(Function::F_{{sym_func.id}}Scalar, src: rhs, scalar: lhs.to_s, name: name, attr: attr)
         end
     end
 
@@ -316,13 +316,13 @@ module MXNet
     def_class_op :_Minimum, :min
 
     def element_wise_sum(num_args : Int32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_ElementWiseSum, num_args: num_args, name: name, attr: attr)
+      Symbol.create(Function::F_ElementWiseSum, num_args: num_args, name: name, attr: attr)
     end
 
     macro def_unary_op(*ops)
       {% for op, idx in ops %}
       def {{op.id}}(name : String? = nil, attr : Hash(String, String)? = nil)
-        create(Function::F_{{op.id}}, src: self, name: name, attr: attr)
+        Symbol.create(Function::F_{{op.id}}, src: self, name: name, attr: attr)
       end
       {% end %}
     end
@@ -332,25 +332,31 @@ module MXNet
     def_unary_op :rsqrt, :exp, :log, :cos, :sin
 
     def embedding(weight : Symbol, input_dim : Int32, output_dim : Int32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_Embedding, data: self, weight: weight,
+      Symbol.create(Function::F_Embedding, data: self, weight: weight,
         input_dim: input_dim, output_dim: output_dim, name: name, attr: attr)
     end
 
-    def fully_connected(weight : Symbol, bias : Symbol, num_hidden : Int32, no_bias : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_FullyConnected, data: self, weight: weight,
+    def fully_connected(num_hidden : Int32, weight : Symbol? = nil, bias : Symbol? = nil, no_bias : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
+      Symbol.create(Function::F_FullyConnected, data: self, weight: weight,
+        bias: bias, num_hidden: num_hidden,
+        no_bias: no_bias, name: name, attr: attr)
+    end
+
+    def self.fully_connected(num_hidden : Int32, weight : Symbol? = nil, bias : Symbol? = nil, no_bias : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
+      Symbol.create(Function::F_FullyConnected, weight: weight,
         bias: bias, num_hidden: num_hidden,
         no_bias: no_bias, name: name, attr: attr)
     end
 
     def identity_attach_kl_sparse_reg(sparseness_target : Float32 = 0.1, penalty : Float32 = 0.001, momentum : Float32 = 0.9, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_IdentityAttachKLSparseReg, data: self,
+      Symbol.create(Function::F_IdentityAttachKLSparseReg, data: self,
         sparseness_target: sparseness_target,
         penalty: penalty,
         momentum: momentum, name: name, attr: attr)
     end
 
     def instance_norm(gamma : Symbol, beta : Symbol, eps : Float32 = 0.001, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_InstanceNorm, data: self, gamma: gamma, beta: beta, eps: eps, name: name, attr: attr)
+      Symbol.create(Function::F_InstanceNorm, data: self, gamma: gamma, beta: beta, eps: eps, name: name, attr: attr)
     end
 
     enum L2NormMode
@@ -360,7 +366,7 @@ module MXNet
     end
 
     def l2_normalization(eps : Float32 = 1e-10, mode : L2NormMode = L2NormMode::Instance, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_L2Normalization, data: self, eps: eps, mode: mode.to_s.downcase, name: name, attr: attr)
+      Symbol.create(Function::F_L2Normalization, data: self, eps: eps, mode: mode.to_s.downcase, name: name, attr: attr)
     end
 
     enum LeakyReLUActType
@@ -375,7 +381,7 @@ module MXNet
                    lower_bound : Float32 = 0.125,
                    upper_bound : Float32 = 0.334,
                    name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_LeakyReLU, data: self,
+      Symbol.create(Function::F_LeakyReLU, data: self,
         act_type: act_type,
         slope: slope,
         lower_bound: lower_bound,
@@ -383,15 +389,15 @@ module MXNet
     end
 
     def self.softmax_cross_entropy(lhs, rhs, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_softmax_cross_entropy, lhs: lhs, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_softmax_cross_entropy, lhs: lhs, rhs: rhs, name: name, attr: attr)
     end
 
     def softmax_cross_entropy(rhs, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_softmax_cross_entropy, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_softmax_cross_entropy, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     def lrn(nsize : UInt32, alpha : Float32 = 0.0001, beta : Float32 = 0.75, knorm : Float32 = 2_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_LRN, nsize: nsize, alpha: alpha, beta: beta, knorm: knorm, name: name, attr: attr)
+      Symbol.create(Function::F_LRN, nsize: nsize, alpha: alpha, beta: beta, knorm: knorm, name: name, attr: attr)
     end
 
     enum Normalization
@@ -403,29 +409,29 @@ module MXNet
     def make_loss(grad_scale : Float32 = 1_f32,
                   valid_thresh : Float32 = 0_f32,
                   normalization : Normalization = Normalization::Null, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_MakeLoss, data: self, grad_scale: grad_scale,
+      Symbol.create(Function::F_MakeLoss, data: self, grad_scale: grad_scale,
         valid_thresh: valid_thresh, normalization: normalization, name: name, attr: attr)
     end
 
     def transpose(axis : Array(Int32) = [] of Int32, name : String? = nil, attr : Hash(String, String)? = nil)
       # typo
-      create(Function::F_transpose, src: self, axis: axis_str(axis), name: name, attr: attr)
+      Symbol.create(Function::F_transpose, src: self, axis: axis_str(axis), name: name, attr: attr)
     end
 
     def expand_dims(axis : UInt32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_expand_dism, src: self, axis: axis_str(axis), name: name, attr: attr)
+      Symbol.create(Function::F_expand_dism, src: self, axis: axis_str(axis), name: name, attr: attr)
     end
 
     def slice_axis(axis : Int32, begin _begin : Int32, end _end : Int32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_slice_axis, src: self, axis: axis, beign: _begin, end: _end, name: name, attr: attr)
+      Symbol.create(Function::F_slice_axis, src: self, axis: axis, beign: _begin, end: _end, name: name, attr: attr)
     end
 
     def dot(rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_dot, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_dot, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     def batch_dot(rhs : Symbol, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_batch_dot, lhs: self, rhs: rhs, name: name, attr: attr)
+      Symbol.create(Function::F_batch_dot, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
     # private def native
@@ -438,7 +444,7 @@ module MXNet
     end
 
     def pad(mode : PadMode, pad_width : Array(Int32), constant_value : Float64 = 0.0, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_pad, data: self, mode: mode.to_s.downcase,
+      Symbol.create(Function::F_pad, data: self, mode: mode.to_s.downcase,
         pad_width: pad_width, constant_value: constant_value, name: name, attr: attr)
     end
 
@@ -458,7 +464,7 @@ module MXNet
                 pooling_convention : PoolingConvention = PoolingConvention::Valid,
                 stride : Array(Int32) = [1, 1],
                 pad : Array(Int32) = [0, 0], name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_Pooling, data: self,
+      Symbol.create(Function::F_Pooling, data: self,
         kernel: axis_str(kernel),
         pool_type: pool_type.to_s.downcase,
         global_pool: global_pool,
@@ -468,22 +474,22 @@ module MXNet
     end
 
     def linear_regression_output(label : Symbol, grad_scale : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_LinearRegressionOutput, data: self, label: label, grad_scale: grad_scale, name: name, attr: attr)
+      Symbol.create(Function::F_LinearRegressionOutput, data: self, label: label, grad_scale: grad_scale, name: name, attr: attr)
     end
 
     def mae_regression_output(label : Symbol, grad_scale : Floar32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_MAERegressionOutput, data: self, label: label, grad_scale: grad_scale, name: name, attr: attr)
+      Symbol.create(Function::F_MAERegressionOutput, data: self, label: label, grad_scale: grad_scale, name: name, attr: attr)
     end
 
     def logistic_regression_output(label : Symbol, grad_scale : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_LogisticRegressionOutput, data: self, label: label, grad_scale: grad_scale, name: name, attr: attr)
+      Symbol.create(Function::F_LogisticRegressionOutput, data: self, label: label, grad_scale: grad_scale, name: name, attr: attr)
     end
 
     def reshape(target_shape : Array(Int32) = [0, 0],
                 keep_highest : Bool = false,
                 shape : Array(Int32) = [] of Int32,
                 reverse : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_reshape, data: self,
+      Symbol.create(Function::F_reshape, data: self,
         target_shape: axis_str(target_shape),
         keep_highest: keep_highest,
         shape: axis_str(shape),
@@ -492,7 +498,7 @@ module MXNet
     end
 
     def flatten(name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_flatten, data: self, name: name, attr: attr)
+      Symbol.create(Function::F_flatten, data: self, name: name, attr: attr)
     end
 
     enum RNNMode
@@ -507,61 +513,61 @@ module MXNet
             mode : RNNMode,
             bidirectional : Bool = false, p : Float32 = 0_f32,
             state_outputs : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_RNN, data: self, parameters: parameters, state: state,
+      Symbol.create(Function::F_RNN, data: self, parameters: parameters, state: state,
         state_cell: state_cell, stat_size: state_size,
         num_layers: num_layers, mode: mode.to_s.downcase,
         bidirectional: bidirectional, p: p, state_outputs: state_outputs, name: name, attr: attr)
     end
 
     def roi_pooling(rois : Symbol, pooled_size : Array(Int32), spatial_scale : Float32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::ROIPooling, data: self, rois: rois,
+      Symbol.create(Function::ROIPooling, data: self, rois: rois,
         pooled_size: pooled_size, spatial_scale: spatial_scale, name: name, attr: attr)
     end
 
     def uniform(shape : Array(Int32), low : Float32 = 0_f32, high : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_uniform, data: self, shape: axis_str(shape), low: low, high: high, name: name, attr: attr)
+      Symbol.create(Function::F_uniform, data: self, shape: axis_str(shape), low: low, high: high, name: name, attr: attr)
     end
 
     def normal(shape : Array(Int32), loc : Float32 = 0_f32, scale : Floart32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_normal, data: self, shape: axis_str(shape), loc: loc, scale: scale, name: name, attr: attr)
+      Symbol.create(Function::F_normal, data: self, shape: axis_str(shape), loc: loc, scale: scale, name: name, attr: attr)
     end
 
     def sequence_last(sequence_length : Symbol? = nil, name : String? = nil, attr : Hash(String, String)? = nil)
       if sequence_length
-        create(Functon::F_SequenceLast, data: self, sequence_length: sequence_length,
+        Symbol.create(Functon::F_SequenceLast, data: self, sequence_length: sequence_length,
           use_sequence_length: true, name: name, attr: attr)
       else
-        create(Functon::F_SequenceLast, data: self, use_sequence_length: false, name: name, attr: attr)
+        Symbol.create(Functon::F_SequenceLast, data: self, use_sequence_length: false, name: name, attr: attr)
       end
     end
 
     def sequence_mask(sequence_length : Symbol? = nil, value : Float32 = 0_f32, name : String? = nil, attr : Hash(String, String)? = nil)
       if sequence_length
-        create(Function::F_SequenceMask, data: self, sequence_length: sequence_length,
+        Symbol.create(Function::F_SequenceMask, data: self, sequence_length: sequence_length,
           use_sequence_length: true, value: value, name: name, attr: attr)
       else
-        create(Function::F_SequenceMask, data: self,
+        Symbol.create(Function::F_SequenceMask, data: self,
           use_sequence_length: false, value: value, name: name, attr: attr)
       end
     end
 
     def sequence_reverse(sequence_length : Symbol? = nil, name : String? = nil, attr : Hash(String, String)? = nil)
       if sequence_length
-        create(Functon::F_SequenceReverse, data: self, sequence_length: sequence_length,
+        Symbol.create(Functon::F_SequenceReverse, data: self, sequence_length: sequence_length,
           use_sequence_length: true, name: name, attr: attr)
       else
-        create(Functon::F_SequenceReverse, data: self, use_sequence_length: false, name: name, attr: attr)
+        Symbol.create(Functon::F_SequenceReverse, data: self, use_sequence_length: false, name: name, attr: attr)
       end
     end
 
     def slice_channel(num_outputs : Int32, axis : Int32 = 1, squeeze_axis : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_slice_channel, data: self, num_outputs: num_outputs,
+      Symbol.create(Function::F_slice_channel, data: self, num_outputs: num_outputs,
         axis: axis,
         squeeze_axis: squeeze_axis, name: name, attr: attr)
     end
 
     def smooth_l1(name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_smooth_l1, src: self, name: name, attr: attr)
+      Symbol.create(Function::F_smooth_l1, src: self, name: name, attr: attr)
     end
 
     enum SoftmaxActivationMode
@@ -570,14 +576,14 @@ module MXNet
     end
 
     def softmax_activation(mode : SoftmaxActivationMode = SoftmaxActivationMode::Instance, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_SoftmaxActivation, data: self, mode: mode.to_s.downcase, name: name, attr: attr)
+      Symbol.create(Function::F_SoftmaxActivation, data: self, mode: mode.to_s.downcase, name: name, attr: attr)
     end
 
     def softmax_output(label : Symbol, grad_scale : Float32 = 1_f32,
                        ignore_label : Float32 = -1_f32, multi_output : Bool = false,
                        use_ignore : Bool = false, preserve_shape : Bool = false,
                        normalization : Normalization = Normalization::Null, out_grad : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_SoftmaxOuput, data: data, label: label, grad_scale: grad_scale,
+      Symbol.create(Function::F_SoftmaxOuput, data: data, label: label, grad_scale: grad_scale,
         ignore_label: ignore_label, multi_output: multi_output,
         use_ignore: use_ignore, preserve_shape: preserve_shape,
         normalization: normalization.to_s.downcase, out_grad: out_grad, name: name, attr: attr)
@@ -593,7 +599,7 @@ module MXNet
     def spatial_transformer(loc : Symbol, target_shape : Array(Int32),
                             transform_type : SpatialTransformerType = SpatialTransformerType::Affine,
                             sampler_type : SpatialTransformerSampleType = SpatialTransformerSampleType::Bilinear, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(data: self, loc: loc, target_shape: axis_str(target_shape),
+      Symbol.create(data: self, loc: loc, target_shape: axis_str(target_shape),
         transform_type: transform_type.to_s.downcase,
         sampler_type: sampler_type.to_s.downcase, name: name, attr: attr)
     end
@@ -601,13 +607,13 @@ module MXNet
     def svm_output(label : Symbol, margin : Float32 = 1_f32,
                    regularization_coefficient : Float32 = 1_f32,
                    use_linear : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(data: self, label: label, margin: margin,
+      Symbol.create(data: self, label: label, margin: margin,
         regularization_coefficient: regularization_coefficient,
         use_linear: use_linear, name: name, attr: attr)
     end
 
     def swap_axis(dim1 : UInt32 = 0, dim2 : UInt32 = 0, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(data: self, dim1: dim1, dim2: dim2, name: name, attr: attr)
+      Symbol.create(data: self, dim1: dim1, dim2: dim2, name: name, attr: attr)
     end
 
     enum UpSamplingType
@@ -625,7 +631,7 @@ module MXNet
                     num_filter : UInt32 = 0,
                     multi_input_mode : UpSamplingMultiInputMode = UpSamplingMultiInputMode::Concat,
                     workspace : UInt64 = 512, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_UpSampling, data: self, scale: scale,
+      Symbol.create(Function::F_UpSampling, data: self, scale: scale,
         sampler_type: sampler_type.to_s.downcase,
         num_args: num_args,
         multi_input_mode: multi_input_mode.to_s.downcase,
@@ -637,7 +643,7 @@ module MXNet
                          num_filter : UInt32 = 0,
                          multi_input_mode : UpSamplingMultiInputMode = UpSamplingMultiInputMode::Concat,
                          workspace : UInt64 = 512, name : String? = nil, attr : Hash(String, String)? = nil)
-      create(Function::F_UpSampling, self, scale: scale,
+      Symbol.create(Function::F_UpSampling, self, scale: scale,
         sampler_type: sampler_type.to_s.downcase,
         num_args: num_args,
         multi_input_mode: multi_input_mode.to_s.downcase,

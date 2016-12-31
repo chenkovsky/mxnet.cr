@@ -291,13 +291,56 @@ module MXNet
     private def symbol_handle(symbols : Hash(::Symbol, Symbol))
       return symbols.keys.map { |x| x.to_s.to_unsafe }, symbols.values.map { |x| x.to_unsafe }
     end
+
+    private def symbol_handle(**symbols)
+      keys = [] of UInt8*
+      vals = [] of LibMXNet::SymbolHandle
+      symbols.each do |k, v|
+        if v.is_a? Symbol
+          keys << k.to_s.to_unsafe
+          vals << v.to_unsafe
+        end
+      end
+      return keys, vals
+    end
+
+    private def symbol_handle(*symbols)
+      keys = nil
+      vals = [] of LibMXNet::SymbolHandle
+      symbols.each do |v|
+        if v.is_a? Symbol
+          vals << v.to_unsafe
+        end
+      end
+      return keys, vals
+    end
+
     # Compose symbol on inputs.
     # This call mutates the current symbol.
     # @param name resulting symbol name
     # @param symbols provide positional arguments
     # @return the resulting symbol
-    protected def compose(name, symbols : Array(Symbol) | Hash(::Symbol, Symbol))
+    def compose(name, symbols : Array(Symbol) | Hash(::Symbol, Symbol))
       keys, args = symbol_handle(symbols)
+      MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, args.size, keys, args)
+    end
+
+    def call(*args, **kwargs)
+      s = self.clone
+      s.compose(*args, **kwargs)
+      return s
+    end
+
+    protected def compose(*args, **kwargs)
+      name = kwargs[:name]?
+      if args.size != 0 && kwargs.size != 0
+        raise MXError.new "compose only accept input Symbols either as positional or keyword arguments, not both"
+      end
+      keys, args = if args.size != 0
+                     symbol_handle(*args)
+                   else
+                     symbol_handle(**kwargs)
+                   end
       MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, args.size, keys, args)
     end
 
@@ -440,13 +483,9 @@ module MXNet
       sym
     end
 
-    def self.group(*symbols)
-      group(symbols.to_a)
-    end
-
     def self.group(symbols : Array(Symbol)) : Symbol
-      ihandles = symbols.map &.handle
-      MXNet.check_call LibMXNet.mx_symbol_create_group(ihandles, out handle)
+      ihandles = symbols.map &.to_unsafe
+      MXNet.check_call LibMXNet.mx_symbol_create_group(ihandles.size, ihandles, out handle)
       Symbol.new handle
     end
 
@@ -465,7 +504,7 @@ module MXNet
       Symbol.new handle
     end
 
-    protected def create(operator : String | Function, *args, **kwargs)
+    protected def self.create(operator : String | Function, *args, **kwargs)
       function = operator.is_a?(String) ? Function[operator] : operator
       param_keys = [] of String
       param_vals = [] of String
@@ -486,7 +525,7 @@ module MXNet
         end
         if v.is_a? Symbol
           symbol_kwargs[k] = v
-        else
+        elsif !v.nil?
           param_keys << k.to_s
           param_vals << v.to_s
         end
