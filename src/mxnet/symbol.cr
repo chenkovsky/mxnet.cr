@@ -98,134 +98,138 @@ module MXNet
       arr
     end
 
-    # Infer the type of outputs and arguments of given known types of arguments.
-    # Tuple of Nones is returned if there is not enough information passed in.
-    # An error will be raised if there is inconsistency found in the known types passed in.
-    # @param args Provide type of arguments in a positional way. Unknown type can be marked as null
-    # @return
-    # argTypes : list of numpy.dtype or None
-    #            List of types of arguments.
-    #            The order is in the same order as list_arguments()
-    # outTypes : list of numpy.dtype or None
-    #            List of types of outputs.
-    #            The order is in the same order as list_outputs()
-    # auxTypes : list of numpy.dtype or None
-    #            List of types of outputs.
-    #            The order is in the same order as list_auxiliary()
-    def self.infer_type(args : Array[MXType])
-      infer_type(nil, args.select { |arg| arg != MXType::Other_T })
-    end
-
-    def infer_type(kwargs : Hash(String, MXType))
-      filtered_args = kwargs.select do |k, v|
-        v != MXType::Other_T
-      end
-      infer_type(filtered_args.keys, filtered_args.values)
-    end
-
-    private def infer_type(keys : Array(String)?, values : Array(MXType)) : {Array(MXType)?, Array(MXType)?, Array(MXType)?}
-      if keys.nil?
-        keys_c = keys.map { |x| x.to_unsafe }
-      else
-        keys_c = Pointer(UInt8*).null
-      end
-      MXNet.check_call LibMXNet.mx_symbol_infer_type(@handle, values.size,
-        keys_c, values,
-        out in_type_size, out in_type_data,
-        out out_type_size, out out_type_data,
-        out aux_type_size, out aux_type_data,
+    private def infer_type_impl(keys : UInt8**, sdata : Array(Int32)) : {Array(MXType)?, Array(MXType)?, Array(MXType)?}
+      MXNet.check_call LibMXNet.mx_symbol_infer_type(
+        @handle, sdata.size,
+        keys, sdata,
+        out arg_type_size,
+        out arg_type_data,
+        out out_type_size,
+        out out_type_data,
+        out aux_type_size,
+        out aux_type_data,
         out complete
       )
       if complete != 0
-        return (0...in_type_size).map { |idx| MXType.new in_type_data[idx] },
-          (0...out_type_size).map { |idx| MXType.new out_type_data[idx] },
-          (0...aux_type_size).map { |idx| MXType.new aux_type_data[idx] }
+        return {(0...arg_type_size).map { |i| MXType.new arg_type_data[i] },
+          (0...out_type_size).map { |i| MXType.new out_type_data[i] },
+          (0...aux_type_size).map { |i| MXType.new aux_type_data[i] }}
       else
-        return nil, nil, nil
+        return {nil, nil, nil}
       end
     end
 
-    # Infer the shape of outputs and arguments of given known shapes of arguments.
-    # User can either pass in the known shapes in positional way or keyword argument way.
-    # Tuple of Nones is returned if there is not enough information passed in.
-    # An error will be raised if there is inconsistency found in the known shapes passed in.
-    # @param args Provide shape of arguments in a positional way.
-    #             Unknown shape can be marked as None
-    # @return
-    # argShapes List of shapes of arguments. The order is in the same order as list_arguments()
-    # outShapes List of shapes of outputs. The order is in the same order as list_outputs()
-    # auxShapes List of shapes of outputs. The order is in the same order as list_auxiliary()
-    def infer_shape(args : Array(Shape?))
+    def infer_type(*args)
+      keys = Pointer(UInt8*).null
+      raise MXError.new "args is not MXType Array" unless args.all? { |arg| arg.is_a? MXType }
+      sdata = [] of Int32
+      args.each { |x| sdata << x.value }
+      infer_shape_impl(keys, sdata)
+    end
+
+    def infer_type(**kwargs)
+      keys = kwargs.keys.map { |x| x.to_s.to_unsafe }.to_a.to_unsafe
+      raise MXError.new "kwargs is not ::Symbol => MXType " unless kwargs.values.all? { |arg| arg.is_a? MXType }
+      sdata = [] of Int32
+      kwargs.each { |k, v| sdata << v.value }
+      infer_shape_impl(keys, sdata)
+    end
+
+    def infer_shape(*args)
+      infer_shape_impl(false, *args)
+    end
+
+    def infer_shape(**kwargs)
+      infer_shape_impl(false, **kwargs)
+    end
+
+    def infer_shape_partial(*args)
+      infer_shape_impl(true, *args)
+    end
+
+    def infer_shape_partial(**kwargs)
+      infer_shape_impl(true, **kwargs)
+    end
+
+    def infer_shape_impl(partial, *args)
       sdata = [] of MXUInt
-      ind_ptr = [0]
-      args.each do |arg|
-        if arg.is_a? Shape
-          sdata.concat arg.shape
-          ind_ptr << arg.shape
+      ind_ptr = [0_u32]
+      keys = nil
+      args.each do |s|
+        case s
+        when Shape
+          sdata.concat(s.shape)
+        when Array(MXUInt)
+          sdata.concat(s)
+        when Array(Int32)
+          sdata.concat(s.map { |x| x.to_u32 })
+        else
+          raise MXError.new "args is not array of Shape or Array(MXUInt)"
         end
+        ind_ptr << sdata.size.to_u32
       end
-      infer_shape(null, ind_ptr, sdata)
+      infer_shape_impl(partial, ind_ptr, keys, sdata)
     end
 
-    # Infer the shape of outputs and arguments of given known shapes of arguments.
-    # User can either pass in the known shapes in positional way or keyword argument way.
-    # Tuple of Nones is returned if there is not enough information passed in.
-    # An error will be raised if there is inconsistency found in the known shapes passed in.
-    # @param kwargs Provide keyword arguments of known shapes.
-    # @return
-    # argShapes List of shapes of arguments. The order is in the same order as list_arguments()
-    # outShapes List of shapes of outputs. The order is in the same order as list_outputs()
-    # auxShapes List of shapes of outputs. The order is in the same order as list_auxiliary()
-    def infer_shape(kwargs : Hash(String, Shape))
-      keys = [] of String
-      ind_ptr = [0]
+    def infer_shape_impl(partial, **kwargs)
       sdata = [] of MXUInt
-      kwargs.each do |key, arg|
-        keys << key
-        sdata.concat arg.shape
-        ind_ptr << arg.size
+      ind_ptr = [0_u32]
+      keys = [] of UInt8*
+      kwargs.each do |k, v|
+        case v
+        when Shape
+          sdata.concat(v.shape)
+        when Array(MXUInt)
+          sdata.concat(v)
+        when Array(Int32)
+          sdata.concat(v.map { |x| x.to_u32 })
+        else
+          raise MXError.new "kwargs is not namedtuple of Shape or Array(MXUInt)"
+        end
+        keys << k.to_s.to_unsafe
+        ind_ptr << sdata.size.to_u32
       end
-      infer_shape keys, ind_ptr, sdata
+      infer_shape_impl(partial, ind_ptr, keys, sdata)
     end
 
-    private def infer_shape(keys : Array(String)?, ind_ptr : Array(Int32), values : Array(MXUInt))
-      if keys.nil?
-        keys_c = nil
+    private def infer_shape_impl(partial : Bool, ind_ptr : Array(MXUInt), sdata : Array(MXUInt)) : {Array(Shape)?, Array(Shape)?, Array(Shape)?}
+      if partial
+        MXNet.check_call LibMXNet.mx_symbol_infer_shape_partial(
+          @handle, ind_ptr.size -1, keys,
+          ind_ptr,
+          sdata,
+          out arg_shape_size,
+          out arg_shape_ndim,
+          out arg_shape_data,
+          out out_shape_size,
+          out out_shape_ndim,
+          out out_shape_data,
+          out aux_shape_size,
+          out aux_shape_ndim,
+          out aux_shape_data,
+          out complete)
       else
-        keys_c = keys.map { |x| x.to_unsafe }
+        MXNet.check_call LibMXNet.mx_symbol_infer_shape(
+          @handle,
+          ind_ptr.size -1,
+            keys,
+            ind_ptr,
+            sdata,
+            out arg_shape_size,
+            out arg_shape_ndim,
+            out arg_shape_data,
+            out out_shape_size,
+            out out_shape_ndim,
+            out out_shape_data,
+            out aux_shape_size,
+            out aux_shape_ndim,
+            out aux_shape_data,
+            out complete)
       end
-      MXNet.check_call LibMXNet.mx_symbol_infer_shape(@handle, ind_ptr.size - 1, keys_c, ind_ptr, values,
-        out in_shape_size,
-        out in_shape_ndim,
-        out in_shape_data,
-        out out_shape_size,
-        out out_shape_ndim,
-        out out_shape_data,
-        out aux_shape_size,
-        out aux_shape_ndim,
-        out aux_shape_data,
-        out complete
-      )
       if complete != 0
-        in_shape = (0...in_shape_size).map do |idx|
-          arr = (0...in_shape_ndim[idx]).map do |dim|
-            in_shape_data[dim]
-          end
-          Shape.new arr
-        end
-        out_shape = (0...out_shape_size).map do |idx|
-          arr = (0...out_shape_ndim[idx]).map do |dim|
-            out_shape_data[dim]
-          end
-          Shape.new arr
-        end
-        aux_shape = (0...aux_shape_size).map do |idx|
-          arr = (0...aux_shape_ndim[idx]).map do |dim|
-            aux_shape_data[dim]
-          end
-          Shape.new arr
-        end
-        return in_shape, out_shape, aux_shape
+        return {(0...arg_shape_size).map { |i| Shape.new (0...arg_shape_ndim[i]).map { |j| arg_shape_datap[i][j] } },
+          (0...out_shape_size).map { |i| Shape.new (0...out_shape_ndim[i]).map { |j| out_shape_datap[i][j] } },
+          (0...aux_shape_size).map { |i| Shape.new (0...aux_shape_ndim[i]).map { |j| aux_shape_datap[i][j] } }}
       else
         return nil, nil, nil
       end
@@ -476,9 +480,19 @@ module MXNet
       io << js
     end
 
-    def self.variable(name : String, attr : Hash(String, String)? = nil) : Symbol
+    def to_json
+      String.build do |io|
+        to_json io
+      end
+    end
+
+    def self.variable(name : String, attr : Hash(String, String)? = nil, shape : Shape | Array(Int32) | Nil = nil) : Symbol
       MXNet.check_call LibMXNet.mx_symbol_create_variable(name, out handle)
       sym = Symbol.new handle
+      unless shape.nil?
+        attr = {} of String => String if attr.nil?
+        attr["__shape__"] = Shape.to_s
+      end
       sym.attr = AttrScope[attr]
       sym
     end

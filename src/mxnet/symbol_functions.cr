@@ -110,7 +110,7 @@ module MXNet
       Symbol.create(Function::F_Activation, name: name, act_type: act_type.to_s.downcase, data: self, attr: attr)
     end
 
-    def batch_norm(data : Symbol, eps : MXFloat = 0.001,
+    def batch_norm(eps : MXFloat = 0.001,
                    momentum : MXFloat = 0.9,
                    fix_gamma : Bool = true,
                    use_global_stats : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
@@ -176,19 +176,19 @@ module MXNet
       Off
     end
 
-    def convolution(weight : Symbol, bias : Symbol,
-                    kernel : Array(Int32),
-                    num_filter : UInt32,
+    def convolution(kernel : Array(Int32),
+                    num_filter : Int32,
+                    weight : Symbol? = nil, bias : Symbol? = nil,
                     stride : Array(Int32) = [1, 1],
                     dilate : Array(Int32) = [1, 1],
                     pad : Array(Int32) = [0, 0],
-                    num_group : UInt32 = 1,
+                    num_group : Int32 = 1,
                     workspace : UInt64 = 1024,
                     no_bias : Bool = false,
                     cudnn_tune : CudnnTune = CudnnTune::Off,
                     cudnn_off : Bool = false,
                     name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_cudnn_tune, data: self,
+      Symbol.create(Function::F_Convolution, data: self,
         weight: weight, bias: bias, kernel: axis_str(kernel), num_filter: num_filter,
         stride: axis_str(stride),
         dilate: axis_str(dilate),
@@ -203,11 +203,11 @@ module MXNet
     end
 
     def correlation(data : Symbol,
-                    kernel_size : UInt32 = 1,
-                    max_displacement : UInt32 = 1,
-                    stride1 : UInt32 = 1,
-                    stride2 : UInt32 = 1,
-                    pad_size : UInt32 = 0,
+                    kernel_size : Int32 = 1,
+                    max_displacement : Int32 = 1,
+                    stride1 : Int32 = 1,
+                    stride2 : Int32 = 1,
+                    pad_size : Int32 = 0,
                     is_multiply : Bool = true,
                     name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_Correlation, data1: self, data2: data,
@@ -244,12 +244,12 @@ module MXNet
 
     def deconvolution(weight : Symbol, bias : Symbol,
                       kernel : Array(Int32),
-                      num_filter : UInt32,
+                      num_filter : Int32,
                       stride : Array(Int32) = [1, 1],
                       pad : Array(Int32) = [0, 0],
                       adj : Array(Int32) = [0, 0],
                       target_shape : Array(Int32) = [0, 0],
-                      num_group : UInt32 = 1,
+                      num_group : Int32 = 1,
                       workspace : UInt64 = 512,
                       no_bias : Bool = true,
                       name : String? = nil, attr : Hash(String, String)? = nil)
@@ -396,7 +396,7 @@ module MXNet
       Symbol.create(Function::F_softmax_cross_entropy, lhs: self, rhs: rhs, name: name, attr: attr)
     end
 
-    def lrn(nsize : UInt32, alpha : Float32 = 0.0001, beta : Float32 = 0.75, knorm : Float32 = 2_f32, name : String? = nil, attr : Hash(String, String)? = nil)
+    def lrn(nsize : Int32, alpha : Float32 = 0.0001, beta : Float32 = 0.75, knorm : Float32 = 2_f32, name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_LRN, nsize: nsize, alpha: alpha, beta: beta, knorm: knorm, name: name, attr: attr)
     end
 
@@ -418,7 +418,7 @@ module MXNet
       Symbol.create(Function::F_transpose, src: self, axis: axis_str(axis), name: name, attr: attr)
     end
 
-    def expand_dims(axis : UInt32, name : String? = nil, attr : Hash(String, String)? = nil)
+    def expand_dims(axis : Int32, name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_expand_dism, src: self, axis: axis_str(axis), name: name, attr: attr)
     end
 
@@ -498,7 +498,7 @@ module MXNet
     end
 
     def flatten(name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_flatten, data: self, name: name, attr: attr)
+      Symbol.create(Function::F_Flatten, data: self, name: name, attr: attr)
     end
 
     enum RNNMode
@@ -509,7 +509,7 @@ module MXNet
     end
 
     def rnn(parameters : Symbol, state : Symbol, state_cell : Symbol,
-            state_size : UInt32, num_layers : UInt32,
+            state_size : Int32, num_layers : Int32,
             mode : RNNMode,
             bidirectional : Bool = false, p : Float32 = 0_f32,
             state_outputs : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
@@ -579,11 +579,11 @@ module MXNet
       Symbol.create(Function::F_SoftmaxActivation, data: self, mode: mode.to_s.downcase, name: name, attr: attr)
     end
 
-    def softmax_output(label : Symbol, grad_scale : Float32 = 1_f32,
+    def softmax_output(label : Symbol? = nil, grad_scale : Float32 = 1_f32,
                        ignore_label : Float32 = -1_f32, multi_output : Bool = false,
                        use_ignore : Bool = false, preserve_shape : Bool = false,
                        normalization : Normalization = Normalization::Null, out_grad : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_SoftmaxOuput, data: data, label: label, grad_scale: grad_scale,
+      Symbol.create(Function::F_SoftmaxOutput, data: self, label: label, grad_scale: grad_scale,
         ignore_label: ignore_label, multi_output: multi_output,
         use_ignore: use_ignore, preserve_shape: preserve_shape,
         normalization: normalization.to_s.downcase, out_grad: out_grad, name: name, attr: attr)
@@ -612,7 +612,7 @@ module MXNet
         use_linear: use_linear, name: name, attr: attr)
     end
 
-    def swap_axis(dim1 : UInt32 = 0, dim2 : UInt32 = 0, name : String? = nil, attr : Hash(String, String)? = nil)
+    def swap_axis(dim1 : Int32 = 0, dim2 : Int32 = 0, name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(data: self, dim1: dim1, dim2: dim2, name: name, attr: attr)
     end
 
@@ -626,9 +626,9 @@ module MXNet
       Sum
     end
 
-    def up_sampling(scale : UInt32, sampler_type : UpSamplingType,
+    def up_sampling(scale : Int32, sampler_type : UpSamplingType,
                     num_args : Int32,
-                    num_filter : UInt32 = 0,
+                    num_filter : Int32 = 0,
                     multi_input_mode : UpSamplingMultiInputMode = UpSamplingMultiInputMode::Concat,
                     workspace : UInt64 = 512, name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_UpSampling, data: self, scale: scale,
@@ -638,9 +638,9 @@ module MXNet
         workspace: workspace, name: name, attr: attr)
     end
 
-    def self.up_sampling(data : Array(Symbol), scale : UInt32, sampler_type : UpSamplingType,
+    def self.up_sampling(data : Array(Symbol), scale : Int32, sampler_type : UpSamplingType,
                          num_args : Int32,
-                         num_filter : UInt32 = 0,
+                         num_filter : Int32 = 0,
                          multi_input_mode : UpSamplingMultiInputMode = UpSamplingMultiInputMode::Concat,
                          workspace : UInt64 = 512, name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_UpSampling, self, scale: scale,
