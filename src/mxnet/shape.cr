@@ -32,6 +32,18 @@ module MXNet
       "(#{@shape.join(",")})"
     end
 
+    def self.to_str(axis : Int32 | Array(Int32) | Nil = nil) : String
+      axis_ = case axis
+              when Int32
+                [axis]
+              when Array(Int32)
+                axis
+              else
+                [] of Int32
+              end
+      "(#{axis_.join(",")})"
+    end
+
     delegate :to_unsafe, to: @shape
 
     def_equals_and_hash @shape

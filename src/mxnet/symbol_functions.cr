@@ -125,37 +125,16 @@ module MXNet
       Symbol.create(Function::F_BlockGrad, data: self, name: name, attr: attr)
     end
 
-    private def axis_str(axis : Int32 | Array(Int32) | Nil = nil) : String
-      axis_ = case axis
-              when Int32
-                [axis]
-              when Nil
-                [] of Int32
-              when Array(Int32)
-                axis
-              end
-      axis_.to_s.gsub do |c|
-        case c
-        when '['
-          '('
-        when ']'
-          ')'
-        else
-          c
-        end
-      end
-    end
-
     def sum(axis : Int32 | Array(Int32) | Nil = nil, keepdims : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_sum, src: self, name: name, axis: axis_str(axis), keepdims: keepdims, attr: attr)
+      Symbol.create(Function::F_sum, src: self, name: name, axis: Shape.to_str(axis), keepdims: keepdims, attr: attr)
     end
 
     def broadcast_axis(axis : Int32 | Array(Int32) | Nil = nil, size : Int32 | Array(Int32) | Nil = nil, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_broadcast_axis, src: self, axis: axis_str(axis), size: axis_str(size), name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_axis, src: self, axis: Shape.to_str(axis), size: Shape.to_str(size), name: name, attr: attr)
     end
 
     def broadcast_to(shape : In32 | Array(Int32) | Nil = nil, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_broadcast_to, src: self, shape: axis_str(shape), name: name, attr: attr)
+      Symbol.create(Function::F_broadcast_to, src: self, shape: Shape.to_str(shape), name: name, attr: attr)
     end
 
     def cast(dtype : MXType, name : String? = nil, attr : Hash(String, String)? = nil)
@@ -189,10 +168,10 @@ module MXNet
                     cudnn_off : Bool = false,
                     name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_Convolution, data: self,
-        weight: weight, bias: bias, kernel: axis_str(kernel), num_filter: num_filter,
-        stride: axis_str(stride),
-        dilate: axis_str(dilate),
-        pad: axis_str(pad),
+        weight: weight, bias: bias, kernel: Shape.to_str(kernel), num_filter: num_filter,
+        stride: Shape.to_str(stride),
+        dilate: Shape.to_str(dilate),
+        pad: Shape.to_str(pad),
         num_group: num_group,
         workspace: workspace,
         no_bias: no_bias,
@@ -228,9 +207,9 @@ module MXNet
              name : String? = nil, attr : Hash(String, String)? = nil)
       # 按照文档应该还能传一个symbol。但是似乎不对
       if crop_like
-        Symbol.create(Function::F_Crop, data: self, num_args: 2, crop_like: crop_like, offset: axis_str(offset), center_crop: center_crop, name: name, attr: attr)
+        Symbol.create(Function::F_Crop, data: self, num_args: 2, crop_like: crop_like, offset: Shape.to_str(offset), center_crop: center_crop, name: name, attr: attr)
       else
-        Symbol.create(Function::F_Crop, data: self, num_args: 1, offset: axis_str(offset), h_w: axis_str(h_w), center_crop: center_crop, name: name, attr: attr)
+        Symbol.create(Function::F_Crop, data: self, num_args: 1, offset: Shape.to_str(offset), h_w: Shape.to_str(h_w), center_crop: center_crop, name: name, attr: attr)
       end
     end
 
@@ -254,9 +233,9 @@ module MXNet
                       no_bias : Bool = true,
                       name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_Deconvolution, data: self,
-        weight: weight, bias: bias, kernel: axis_str(kernel),
-        num_filter: num_filter, stride: axis_str(stride), pad: axis_str(pad), adj: axis_str(adj),
-        target_shape: axis_str(target_shape), num_group: num_group,
+        weight: weight, bias: bias, kernel: Shape.to_str(kernel),
+        num_filter: num_filter, stride: Shape.to_str(stride), pad: Shape.to_str(pad), adj: Shape.to_str(adj),
+        target_shape: Shape.to_str(target_shape), num_group: num_group,
         workspace: workspace, no_bias: no_bias, name: name, attr: attr)
     end
 
@@ -415,11 +394,11 @@ module MXNet
 
     def transpose(axis : Array(Int32) = [] of Int32, name : String? = nil, attr : Hash(String, String)? = nil)
       # typo
-      Symbol.create(Function::F_transpose, src: self, axis: axis_str(axis), name: name, attr: attr)
+      Symbol.create(Function::F_transpose, src: self, axis: Shape.to_str(axis), name: name, attr: attr)
     end
 
     def expand_dims(axis : Int32, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_expand_dism, src: self, axis: axis_str(axis), name: name, attr: attr)
+      Symbol.create(Function::F_expand_dism, src: self, axis: Shape.to_str(axis), name: name, attr: attr)
     end
 
     def slice_axis(axis : Int32, begin _begin : Int32, end _end : Int32, name : String? = nil, attr : Hash(String, String)? = nil)
@@ -465,12 +444,12 @@ module MXNet
                 stride : Array(Int32) = [1, 1],
                 pad : Array(Int32) = [0, 0], name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_Pooling, data: self,
-        kernel: axis_str(kernel),
+        kernel: Shape.to_str(kernel),
         pool_type: pool_type.to_s.downcase,
         global_pool: global_pool,
         pooling_convention: pooling_convention.to_s.downcase,
-        stride: axis_str(stride),
-        pad: axis_str(pad), name: name, attr: attr)
+        stride: Shape.to_str(stride),
+        pad: Shape.to_str(pad), name: name, attr: attr)
     end
 
     def linear_regression_output(label : Symbol, grad_scale : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
@@ -490,9 +469,9 @@ module MXNet
                 shape : Array(Int32) = [] of Int32,
                 reverse : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_reshape, data: self,
-        target_shape: axis_str(target_shape),
+        target_shape: Shape.to_str(target_shape),
         keep_highest: keep_highest,
-        shape: axis_str(shape),
+        shape: Shape.to_str(shape),
         reverse: reverse, name: name, attr: attr
       )
     end
@@ -525,11 +504,11 @@ module MXNet
     end
 
     def uniform(shape : Array(Int32), low : Float32 = 0_f32, high : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_uniform, data: self, shape: axis_str(shape), low: low, high: high, name: name, attr: attr)
+      Symbol.create(Function::F_uniform, data: self, shape: Shape.to_str(shape), low: low, high: high, name: name, attr: attr)
     end
 
     def normal(shape : Array(Int32), loc : Float32 = 0_f32, scale : Floart32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_normal, data: self, shape: axis_str(shape), loc: loc, scale: scale, name: name, attr: attr)
+      Symbol.create(Function::F_normal, data: self, shape: Shape.to_str(shape), loc: loc, scale: scale, name: name, attr: attr)
     end
 
     def sequence_last(sequence_length : Symbol? = nil, name : String? = nil, attr : Hash(String, String)? = nil)
@@ -599,7 +578,7 @@ module MXNet
     def spatial_transformer(loc : Symbol, target_shape : Array(Int32),
                             transform_type : SpatialTransformerType = SpatialTransformerType::Affine,
                             sampler_type : SpatialTransformerSampleType = SpatialTransformerSampleType::Bilinear, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(data: self, loc: loc, target_shape: axis_str(target_shape),
+      Symbol.create(data: self, loc: loc, target_shape: Shape.to_str(target_shape),
         transform_type: transform_type.to_s.downcase,
         sampler_type: sampler_type.to_s.downcase, name: name, attr: attr)
     end
