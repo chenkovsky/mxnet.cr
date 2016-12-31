@@ -24,6 +24,10 @@ module MXNet
       Symbol.new handle
     end
 
+    def dup
+      clone
+    end
+
     def [](idx : Int32) : Symbol
       MXNet.check_call LibMXNet.mx_symbol_get_output(@handle, idx, out handle)
       Symbol.new handle
@@ -34,7 +38,7 @@ module MXNet
       outputs do |output, i|
         if output == name
           raise MXError.new "There are multiple outputs with name #{name}" unless index == -1
-          index == i
+          index = i
         end
       end
       raise MXError.new "Cannot find output that matches name #{name}" unless index >= 0
@@ -124,7 +128,7 @@ module MXNet
       raise MXError.new "args is not MXType Array" unless args.all? { |arg| arg.is_a? MXType }
       sdata = [] of Int32
       args.each { |x| sdata << x.value }
-      infer_shape_impl(keys, sdata)
+      infer_type_impl(keys, sdata)
     end
 
     def infer_type(**kwargs)
@@ -132,29 +136,32 @@ module MXNet
       raise MXError.new "kwargs is not ::Symbol => MXType " unless kwargs.values.all? { |arg| arg.is_a? MXType }
       sdata = [] of Int32
       kwargs.each { |k, v| sdata << v.value }
-      infer_shape_impl(keys, sdata)
+      infer_type_impl(keys, sdata)
     end
 
     def infer_shape(*args)
-      infer_shape_impl(false, *args)
+      param = infer_shape_param(*args)
+      infer_shape_impl *param
     end
 
     def infer_shape(**kwargs)
-      infer_shape_impl(false, **kwargs)
+      param = infer_shape_param(**kwargs)
+      infer_shape_impl *param
     end
 
     def infer_shape_partial(*args)
-      infer_shape_impl(true, *args)
+      param = infer_shape_param(*args)
+      infer_shape_partial_impl *param
     end
 
     def infer_shape_partial(**kwargs)
-      infer_shape_impl(true, **kwargs)
+      param = infer_shape_param(**kwargs)
+      infer_shape_partial_impl *param
     end
 
-    def infer_shape_impl(partial, *args)
+    private def infer_shape_param(*args)
       sdata = [] of MXUInt
       ind_ptr = [0_u32]
-      keys = nil
       args.each do |s|
         case s
         when Shape
@@ -168,10 +175,10 @@ module MXNet
         end
         ind_ptr << sdata.size.to_u32
       end
-      infer_shape_impl(partial, ind_ptr, keys, sdata)
+      return ind_ptr, Pointer(UInt8*).null, sdata
     end
 
-    def infer_shape_impl(partial, **kwargs)
+    private def infer_shape_param(**kwargs)
       sdata = [] of MXUInt
       ind_ptr = [0_u32]
       keys = [] of UInt8*
@@ -189,47 +196,56 @@ module MXNet
         keys << k.to_s.to_unsafe
         ind_ptr << sdata.size.to_u32
       end
-      infer_shape_impl(partial, ind_ptr, keys, sdata)
+      return ind_ptr, keys.to_unsafe, sdata
     end
 
-    private def infer_shape_impl(partial : Bool, ind_ptr : Array(MXUInt), sdata : Array(MXUInt)) : {Array(Shape)?, Array(Shape)?, Array(Shape)?}
-      if partial
-        MXNet.check_call LibMXNet.mx_symbol_infer_shape_partial(
-          @handle, ind_ptr.size -1, keys,
-          ind_ptr,
-          sdata,
-          out arg_shape_size,
-          out arg_shape_ndim,
-          out arg_shape_data,
-          out out_shape_size,
-          out out_shape_ndim,
-          out out_shape_data,
-          out aux_shape_size,
-          out aux_shape_ndim,
-          out aux_shape_data,
-          out complete)
-      else
-        MXNet.check_call LibMXNet.mx_symbol_infer_shape(
-          @handle,
-          ind_ptr.size -1,
-            keys,
-            ind_ptr,
-            sdata,
-            out arg_shape_size,
-            out arg_shape_ndim,
-            out arg_shape_data,
-            out out_shape_size,
-            out out_shape_ndim,
-            out out_shape_data,
-            out aux_shape_size,
-            out aux_shape_ndim,
-            out aux_shape_data,
-            out complete)
-      end
+    private def infer_shape_partial_impl(ind_ptr : Array(MXUInt), keys : UInt8**, sdata : Array(MXUInt))
+      MXNet.check_call LibMXNet.mx_symbol_infer_shape_partial(
+        @handle,
+        ind_ptr.size - 1,
+        keys,
+        ind_ptr,
+        sdata,
+        out arg_shape_size,
+        out arg_shape_ndim,
+        out arg_shape_data,
+        out out_shape_size,
+        out out_shape_ndim,
+        out out_shape_data,
+        out aux_shape_size,
+        out aux_shape_ndim,
+        out aux_shape_data,
+        out complete)
       if complete != 0
-        return {(0...arg_shape_size).map { |i| Shape.new (0...arg_shape_ndim[i]).map { |j| arg_shape_datap[i][j] } },
-          (0...out_shape_size).map { |i| Shape.new (0...out_shape_ndim[i]).map { |j| out_shape_datap[i][j] } },
-          (0...aux_shape_size).map { |i| Shape.new (0...aux_shape_ndim[i]).map { |j| aux_shape_datap[i][j] } }}
+        return {(0...arg_shape_size).map { |i| Shape.new (0...arg_shape_ndim[i]).map { |j| arg_shape_data[i][j] } },
+          (0...out_shape_size).map { |i| Shape.new (0...out_shape_ndim[i]).map { |j| out_shape_data[i][j] } },
+          (0...aux_shape_size).map { |i| Shape.new (0...aux_shape_ndim[i]).map { |j| aux_shape_data[i][j] } }}
+      else
+        return nil, nil, nil
+      end
+    end
+
+    private def infer_shape_impl(ind_ptr : Array(MXUInt), keys : UInt8**, sdata : Array(MXUInt)) : {Array(Shape)?, Array(Shape)?, Array(Shape)?}
+      MXNet.check_call LibMXNet.mx_symbol_infer_shape(
+        @handle,
+        ind_ptr.size - 1,
+        keys,
+        ind_ptr,
+        sdata,
+        out arg_shape_size,
+        out arg_shape_ndim,
+        out arg_shape_data,
+        out out_shape_size,
+        out out_shape_ndim,
+        out out_shape_data,
+        out aux_shape_size,
+        out aux_shape_ndim,
+        out aux_shape_data,
+        out complete)
+      if complete != 0
+        return {(0...arg_shape_size).map { |i| Shape.new (0...arg_shape_ndim[i]).map { |j| arg_shape_data[i][j] } },
+          (0...out_shape_size).map { |i| Shape.new (0...out_shape_ndim[i]).map { |j| out_shape_data[i][j] } },
+          (0...aux_shape_size).map { |i| Shape.new (0...aux_shape_ndim[i]).map { |j| aux_shape_data[i][j] } }}
       else
         return nil, nil, nil
       end
@@ -477,7 +493,7 @@ module MXNet
 
     def to_json(io)
       MXNet.check_call LibMXNet.mx_symbol_save_to_json(@handle, out js)
-      io << js
+      io << String.new(js)
     end
 
     def to_json
@@ -491,7 +507,7 @@ module MXNet
       sym = Symbol.new handle
       unless shape.nil?
         attr = {} of String => String if attr.nil?
-        attr["__shape__"] = Shape.to_s
+        attr["__shape__"] = Shape.to_str(shape)
       end
       sym.attr = AttrScope[attr]
       sym

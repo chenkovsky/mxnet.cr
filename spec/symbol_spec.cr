@@ -102,19 +102,25 @@ describe MXNet do
       h2h = prev.fully_connected(name: "h2h", num_hidden: num_hidden)
       out_ = (x2h + h2h).activation(name: "out", act_type: MXNet::Symbol::ActType::Relu)
       ret = out_.infer_shape(data: [num_sample, num_dim])
-      ret.should eq([nil, nil, nil])
+      ret.should eq({nil, nil, nil})
       arg, out_shapes, aux_shapes = out_.infer_shape_partial(data: [num_sample, num_dim])
+      raise "arg is null" if arg.nil?
+      raise "out_shapes is null" if out_shapes.nil?
+      raise "aux_shapes is null" if aux_shapes.nil?
       arg_shapes = out_.arguments.zip(arg).to_h
-      arg_shapes["data"].should eq([num_sample, num_dim])
-      arg_shapes["x2h_weight"].should eq([num_hidden, num_dim])
+      arg_shapes["data"].to_a.should eq([num_sample, num_dim])
+      arg_shapes["x2h_weight"].to_a.should eq([num_hidden, num_dim])
       arg_shapes["h2h_weight"].size.should eq(0)
 
       state_shape = out_shapes[0]
       arg, out_shapes, aux_shapes = out_.infer_shape(data: [num_sample, num_dim], prevstate: state_shape)
+      raise "arg is null" if arg.nil?
+      raise "out_shapes is null" if out_shapes.nil?
+      raise "aux_shapes is null" if aux_shapes.nil?
       arg_shapes = out_.arguments.zip(arg).to_h
-      arg_shapes["data"].should.eq([num_sample, num_dim])
-      arg_shapes["x2h_weight"].should eq([num_hidden, num_dim])
-      arg_shapes["h2h_weight"].should eq([num_hidden, num_hidden])
+      arg_shapes["data"].to_a.should eq([num_sample, num_dim])
+      arg_shapes["x2h_weight"].to_a.should eq([num_hidden, num_dim])
+      arg_shapes["h2h_weight"].to_a.should eq([num_hidden, num_hidden])
     end
     it "infer shape var" do
       shape = [2, 3]
@@ -122,15 +128,21 @@ describe MXNet do
       b = MXNet::Symbol.variable("b")
       c = a + b
       arg_shapes, out_shapes, aux_shapes = c.infer_shape
-      arg_shapes[0].should eq(shape)
-      arg_shapes[1].should eq(shape)
-      arg_shapes[0].should eq(shape)
+      raise "arg_shapes is null" if arg_shapes.nil?
+      raise "out_shapes is null" if out_shapes.nil?
+      raise "aux_shapes is null" if aux_shapes.nil?
+      arg_shapes[0].to_a.should eq(shape)
+      arg_shapes[1].to_a.should eq(shape)
+      arg_shapes[0].to_a.should eq(shape)
 
       overwrite_shape = [5, 6]
       arg_shapes, out_shapes, aux_shapes = c.infer_shape a: overwrite_shape
-      arg_shapes[0].should eq(overwrite_shape)
-      arg_shapes[1].should eq(overwrite_shape)
-      out_shapes[0].should eq(overwrite_shape)
+      raise "arg_shapes is null" if arg_shapes.nil?
+      raise "out_shapes is null" if out_shapes.nil?
+      raise "aux_shapes is null" if aux_shapes.nil?
+      arg_shapes[0].to_a.should eq(overwrite_shape)
+      arg_shapes[1].to_a.should eq(overwrite_shape)
+      out_shapes[0].to_a.should eq(overwrite_shape)
     end
   end
 end

@@ -24,6 +24,23 @@ module MXNet
     Int32_T   =  4
     Other_T   = -1
 
+    def to_s
+      case self
+      when Float32_T
+        "float32"
+      when Float64_T
+        "float64"
+      when Float16_T
+        "float16"
+      when UInt8_T
+        "uint8"
+      when Int32_T
+        "int32"
+      else
+        "other"
+      end
+    end
+
     def array(size : Int32) : MXArray
       case self
       when MXType::Float32_T

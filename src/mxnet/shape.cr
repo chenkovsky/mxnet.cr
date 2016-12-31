@@ -32,8 +32,10 @@ module MXNet
       "(#{@shape.join(",")})"
     end
 
-    def self.to_str(axis : Int32 | Array(Int32) | Nil = nil) : String
+    def self.to_str(axis : Shape | Int32 | Array(Int32) | Nil = nil) : String
       axis_ = case axis
+              when Shape
+                axis.shape
               when Int32
                 [axis]
               when Array(Int32)

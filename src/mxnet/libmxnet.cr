@@ -345,7 +345,7 @@ lib LibMXNet
   # param symbol the input symbol.
   # param out_json output json string.
   # return 0 when success, -1 when failure happens
-  fun mx_symbol_save_to_json = MXSymbolSaveToJSON(symbol : SymbolHandle, out_json : UInt8*) : Int32
+  fun mx_symbol_save_to_json = MXSymbolSaveToJSON(symbol : SymbolHandle, out_json : UInt8**) : Int32
   # Free the symbol handle.
   # param symbol the symbol
   # return 0 when success, -1 when failure happens

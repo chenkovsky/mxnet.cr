@@ -138,7 +138,7 @@ module MXNet
     end
 
     def cast(dtype : MXType, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_Cast, data: self, name: name, attr: attr)
+      Symbol.create(Function::F_Cast, data: self, dtype: dtype.to_s, name: name, attr: attr)
     end
 
     def self.concat(data : Array(Symbol), num_args : Int32, dim : Int32 = 1, name : String? = nil, attr : Hash(String, String)? = nil)
