@@ -158,7 +158,7 @@ module MXNet
       return NDArray.new new_alloc_handle(shape_, ctx_, false, dtype)
     end
 
-    private def self.new_alloc_handle(shape : Shape, ctx : Context, delay_alloc : Bool, dtype : MXType = MXType::Float32_T)
+    protected def self.new_alloc_handle(shape : Shape, ctx : Context, delay_alloc : Bool, dtype : MXType = MXType::Float32_T)
       MXNet.check_call(LibMXNet.mx_ndarray_create_ex(
         shape,
         shape.size,
@@ -219,7 +219,7 @@ module MXNet
     end
 
     def copy_to(ctx : Context) : NDArray
-      ret = NDArray.new shape, ctx, delay_alloc: true
+      ret = NDArray.new NDArray.new_alloc_handle(shape, ctx, delay_alloc: true)
       copy_to(ret)
     end
 

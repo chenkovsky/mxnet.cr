@@ -2,6 +2,11 @@ require "logger"
 
 module MXNet
   class Symbol
+    enum BindReq
+      NULL  = 0
+      WRITE = 1
+      ADD   = 3
+    end
     @handle : LibMXNet::SymbolHandle
 
     def to_unsafe
@@ -139,6 +144,20 @@ module MXNet
       infer_type_impl(keys, sdata)
     end
 
+    def infer_type(args : Array(MXType))
+      keys = Pointer(UInt8*).null
+      sdata = [] of Int32
+      args.each { |x| sdata << x.value }
+      infer_type_impl(keys, sdata)
+    end
+
+    def infer_type(kwargs : Hash(String, MXType) | Hash(::Symbol, MXType))
+      keys = kwargs.keys.map { |x| x.to_s.to_unsafe }.to_a.to_unsafe
+      sdata = [] of Int32
+      kwargs.each { |k, v| sdata << v.value }
+      infer_type_impl(keys, sdata)
+    end
+
     def infer_shape(*args)
       param = infer_shape_param(*args)
       infer_shape_impl *param
@@ -178,7 +197,67 @@ module MXNet
       return ind_ptr, Pointer(UInt8*).null, sdata
     end
 
+    def infer_shape(args : Array(Shape) | Array(Array(Int32)) | Array(Array(MXUInt)))
+      param = infer_shape_param(args)
+      infer_shape_impl *param
+    end
+
+    def infer_shape_partial(args : Array(Shape) | Array(Array(Int32)) | Array(Array(MXUInt)))
+      param = infer_shape_param(args)
+      infer_shape_partial_impl *param
+    end
+
+    def infer_shape(kwargs : Hash(String, Shape) | Hash(String, Array(Int32)) | Hash(::Symbol, Array(MXUInt)) | Hash(::Symbol, Shape) | Hash(::Symbol, Array(Int32)) | Hash(::Symbol, Array(MXUInt)))
+      param = infer_shape_param(kwargs)
+      infer_shape_impl *param
+    end
+
+    def infer_shape_partial(kwargs : Hash(String, Shape) | Hash(String, Array(Int32)) | Hash(::Symbol, Array(MXUInt)) | Hash(::Symbol, Shape) | Hash(::Symbol, Array(Int32)) | Hash(::Symbol, Array(MXUInt)))
+      param = infer_shape_param(kwargs)
+      infer_shape_partial_impl *param
+    end
+
+    private def infer_shape_param(args : Array(Shape) | Array(Array(Int32)) | Array(Array(MXUInt)))
+      sdata = [] of MXUInt
+      ind_ptr = [0_u32]
+      args.each do |s|
+        case s
+        when Shape
+          sdata.concat(s.shape)
+        when Array(MXUInt)
+          sdata.concat(s)
+        when Array(Int32)
+          sdata.concat(s.map { |x| x.to_u32 })
+        else
+          raise MXError.new "args is not array of Shape or Array(MXUInt)"
+        end
+        ind_ptr << sdata.size.to_u32
+      end
+      return ind_ptr, Pointer(UInt8*).null, sdata
+    end
+
     private def infer_shape_param(**kwargs)
+      sdata = [] of MXUInt
+      ind_ptr = [0_u32]
+      keys = [] of UInt8*
+      kwargs.each do |k, v|
+        case v
+        when Shape
+          sdata.concat(v.shape)
+        when Array(MXUInt)
+          sdata.concat(v)
+        when Array(Int32)
+          sdata.concat(v.map { |x| x.to_u32 })
+        else
+          raise MXError.new "kwargs is not namedtuple of Shape or Array(MXUInt)"
+        end
+        keys << k.to_s.to_unsafe
+        ind_ptr << sdata.size.to_u32
+      end
+      return ind_ptr, keys.to_unsafe, sdata
+    end
+
+    private def infer_shape_param(kwargs : Hash(String, Shape) | Hash(String, Array(Int32)) | Hash(::Symbol, Array(MXUInt)) | Hash(::Symbol, Shape) | Hash(::Symbol, Array(Int32)) | Hash(::Symbol, Array(MXUInt)))
       sdata = [] of MXUInt
       ind_ptr = [0_u32]
       keys = [] of UInt8*
@@ -251,6 +330,24 @@ module MXNet
       end
     end
 
+    def attrs(recursive : Bool = false)
+      if recursive
+        attrs_recursive
+      else
+        attrs_shallow
+      end
+    end
+
+    private def attrs_recursive
+      LibMXNet.mx_symbol_list_attr(@handle, out size, out pairs)
+      (0...size).map { |i| {String.new(pairs[i << 1]), String.new(pairs[(i << 1) + 1])} }
+    end
+
+    private def attrs_shallow
+      LibMXNet.mx_symbol_list_attr_shallow(@handle, out size, out pairs)
+      (0...size).map { |i| {String.new(pairs[i << 1]), String.new(pairs[(i << 1) + 1])} }
+    end
+
     # Get attribute string from the symbol, this function only works for non-grouped symbol.
     # @param key  The key to get attribute from.
     # @return value The attribute value of the key, returns None if attribute do not exist.
@@ -302,17 +399,17 @@ module MXNet
       MXNet.check_call LibMXNet.mx_symbol_save_to_file @handle, fname
     end
 
-    private def symbol_handle(symbols : Array(Symbol))
+    private def compose_param(symbols : Array(Symbol))
       return nil, symbols.map { |x| x.to_unsafe }
     end
-    private def symbol_handle(symbols : Hash(String, Symbol))
+    private def compose_param(symbols : Hash(String, Symbol))
       return symbols.keys.map { |x| x.to_unsafe }, symbols.values.map { |x| x.to_unsafe }
     end
-    private def symbol_handle(symbols : Hash(::Symbol, Symbol))
+    private def compose_param(symbols : Hash(::Symbol, Symbol))
       return symbols.keys.map { |x| x.to_s.to_unsafe }, symbols.values.map { |x| x.to_unsafe }
     end
 
-    private def symbol_handle(**symbols)
+    private def compose_param(**symbols)
       keys = [] of UInt8*
       vals = [] of LibMXNet::SymbolHandle
       symbols.each do |k, v|
@@ -324,7 +421,7 @@ module MXNet
       return keys, vals
     end
 
-    private def symbol_handle(*symbols)
+    private def compose_param(*symbols)
       keys = nil
       vals = [] of LibMXNet::SymbolHandle
       symbols.each do |v|
@@ -341,7 +438,7 @@ module MXNet
     # @param symbols provide positional arguments
     # @return the resulting symbol
     def compose(name, symbols : Array(Symbol) | Hash(::Symbol, Symbol))
-      keys, args = symbol_handle(symbols)
+      keys, args = compose_param(symbols)
       MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, args.size, keys, args)
     end
 
@@ -357,95 +454,115 @@ module MXNet
         raise MXError.new "compose only accept input Symbols either as positional or keyword arguments, not both"
       end
       keys, args = if args.size != 0
-                     symbol_handle(*args)
+                     compose_param(*args)
                    else
-                     symbol_handle(**kwargs)
+                     compose_param(**kwargs)
                    end
       MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, args.size, keys, args)
     end
 
-    def bind(ctx : Context, grad_req : BindReq, shapes : Hash(String, Shape), types : Hash(String, MXType)? = nil) : Executor
+    def bind(ctx : Context,
+             shapes : Hash(String, Shape) | Hash(String, Array(Int32)) | Hash(String, Array(MXUInt)) | Hash(::Symbol, Shape) | Hash(::Symbol, Array(Int32)) | Hash(::Symbol, Array(MXUInt)) = {} of String => Shape,
+             grad_req : BindReq = BindReq::WRITE,
+             types : Hash(String, MXType) | Hash(::Symbol, MXType) | Nil = nil,
+             group2ctx : Hash(String, Context)? = nil) : Executor
       args = arguments
-      types_ = if types.nil?
-                 args.map { |a, i| {a, MXType::Float32_T} }.to_h
-               else
-                 types
-               end
+      types_ = types.nil? ? args.map_with_index { |a, i| {a, MXType::Float32_T} }.to_h : types
       arg_shapes, _, aux_shapes = infer_shape shapes
-      arg_types, _, aux_types = infer_type types
+      arg_types, _, aux_types = infer_type types_
       raise MXError.new "Input node is not complete" if arg_shapes.nil? || arg_types.nil?
+      raise MXError.new "Input node is not complete" if aux_shapes.nil? || aux_types.nil?
+      if group2ctx
+        attr_dict = {} of String => Context
+        attrs(recursive: true).each do |k, v|
+          if k.ends_with? "ctx_group"
+            attr_dict[k] = group2ctx.fetch(v, ctx)
+          end
+        end
+        arg_ctx = [] of Context
+        aux_ctx = [] of Context
+        arguments do |name, idx|
+          arg_ctx << attr_dict.fetch(name + "_ctx_group", ctx)
+        end
+        auxiliary_states do |name, idx|
+          aux_ctx << attr_dict.fetch(name + "_ctx_group", ctx)
+        end
+      else
+        arg_ctx = arg_shapes.map { |_| ctx }
+        aux_ctx = aux_shapes.map { |_| ctx }
+      end
       arg_ndarrays = arg_shapes.zip(arg_types).map { |s, t|
-        # @TODO: NDArray dtype
-        NDArray.zeros(s, ctx)
+        NDArray.zeros(s, ctx, dtype: t)
       }
       grad_ndarrays = if grad_req == BindReq::NULL
-                        args.zip(arg_shapes, arg_types).map { |name_idx, shape, t|
-                          # @TODO: NDArray dtype
-                          {name_idx[0], NDArray.zeros(shape, cxt)}
+                        (0...args.size).map { |i|
+                          name_idx = args[i]
+                          shape = arg_shapes[i]
+                          actx = arg_ctx[i]
+                          t = arg_types[i]
+                          {name_idx, NDArray.zeros(shape, actx, dtype: t)}
                         }.to_h
                       else
                         nil
                       end
-      aux_ndarrays = aux_shapes.zip(aux_types).map { |shape, t| NDArray.zeros shape, ctx }
-      bind ctx, arg_ndarrays, grad_ndarrays, grad_req, aux_ndarrays, nil, nil
+
+      aux_ndarrays = (0...aux_shapes.size).map { |i|
+        shape = aux_shapes[i]
+        actx = aux_ctx[i]
+        t = aux_types[i]
+        NDArray.zeros(shape, actx, dtype: t)
+      }
+      bind ctx, arg_ndarrays, grad_ndarrays, grad_req, aux_ndarrays, group2ctx, nil
     end
 
-    def bind(ctx : Context,
-             args : Array(NDArray) | Hash(String, NDArray),
-             args_grad : Array(NDArray) | Hash(String, NDArray) | Nil,
-             grad_req : BindReq | Hash(String, BindReq) | Array(BindReq) = BindReq::Write,
-             aux_states : Array(NDArray) | Hash(String, NDArray) | Nil = nil,
-             group2ctx : Hash(String, Context)? = nil,
-             shared_exec : Executor? = nil) : Executor
-      symbol_arguments = arguments
-      args_handle, args_ndarray = if args.is_a? Array(NDArray)
-                                    raise MXError.new "Length of args do not match number of arguments" unless symbol_arguments.size == args.size
-                                    {args.map { |arg| arg.handle }, args}
-                                  else
-                                    arg_arr = symbol_arguments.map { |arg_name, idx|
-                                      raise MXError.new "Must specify all the arguments in args" unless args.has_key? arg_name
-                                      args[arg_name]
-                                    }
-                                    {arg_arr.map { |arg| arg.handle }, arg_arr}
-                                  end
-      args_grad_handle, args_grad_ndarray = if args_grad.nil?
-                                              {Array.new(size: args.size, value: NDArrayHandle.null), nil}
-                                            elsif args_grad.is_a? Array(NDArray)
-                                              raise MXError.new "Length of args_grad do not match number of arguments" unless symbol_arguments.size == args_grad.size
-                                              {args_grad.map { |arg| arg.handle }, args_grad}
-                                            else
-                                              arg_arr = symbol_arguments.map { |arg_name, idx|
-                                                raise MXError.new "Must specify all the arguments in args_grad" unless args_grad.has_key? arg_name
-                                                args_grad[arg_name]
-                                              }
-                                              {arg_arr.map { |arg| arg.handle }, arg_arr}
-                                            end
-      aux_states_ = auxiliary_states
-      aux_args_handle, aux_states_ndarray = if aux_states.nil?
-                                              {[] of NDArrayHandle, [] of NDArray}
-                                            elsif aux_states.is_a? Array(NDArray)
-                                              raise MXError.new "Length of aux_states do not match number of arguments" unless aux_states.size == aux_states_.size
-                                              {aux_states.map { |s| s.handle }, aux_states}
-                                            else
-                                              arg_arr = aux_states_.map { |arg_name, idx|
-                                                raise MXError.new "Must specify all the arguments in aux_states" unless aux_states.has_key? arg_name
-                                                aux_states[arg_name]
-                                              }
-                                              {arg_arr.map { |arg| arg.handle }, arg_arr}
-                                            end
-      grads_req_array = if grad_req.is_a? BindReq
-                          Array(BindReq).new(size: symbol_arguments.size, value: grad_req)
-                        elsif grad_req.is_a? Array(BindReq)
-                          grad_req
-                        else
-                          symbol_arguments.map do |req|
-                            grad_req.fetch(req, BindReq::Null)
-                          end
-                        end
-      reqs_array = grads_req_array.map do |x|
-        raise MXError.new "grad_req must be in #{Symbol.bind_req_map}" unless Symbol.bind_req_map.includes? req
-        Symbol.bind_req_map x
+    private def bind_args_param(args_, args)
+      case args
+      when Array(NDArray)
+        raise MXError.new "Length of args do not match number of arguments" unless args_.size == args.size
+        {args.map { |arg| arg.to_unsafe }, args}
+      when Hash(String, NDArray)
+        arg_arr = [] of NDArray
+        args_.each { |arg_name|
+          raise MXError.new "Must specify all the arguments in args" unless args.has_key? arg_name
+          arg_arr << args[arg_name]
+        }
+        {arg_arr.map { |arg| arg.to_unsafe }, arg_arr}
+      when Hash(::Symbol, NDArray)
+        args_ = args.map { |k, v| {k.to_s, v} }.to_h
+        bind_args_param(args_, args_)
+      when NamedTuple
+        hs = Hash(String, NDArray).new
+        args.each do |k, v|
+          hs[k.to_s] = v
+        end
+        bind_args_param(args_, hs)
+      when Nil
+        {[] of LibMXNet::NDArrayHandle, [] of NDArray}
+      else
+        raise MXError.new "invliad args"
       end
+    end
+
+    private def bind_grads_req_param(symbol_arguments, grad_req)
+      case grad_req
+      when BindReq
+        Array(BindReq).new(size: symbol_arguments.size, value: grad_req)
+      when Array(BindReq)
+        grad_req
+      when Hash(String, BindReq)
+        ret = [] of BindReq
+        symbol_arguments.each do |req|
+          ret << grad_req.fetch(req, BindReq::NULL)
+        end
+        ret
+      when Hash(::Symbol, BindReq)
+        bind_grads_req_param symbol_arguments, grad_req.map { |k, v| {k.to_s, v} }.to_h
+      else
+        raise MXError.new "invalid grad_req"
+      end
+    end
+
+    private def bind_ctx_param(group2ctx)
       ctx_map_keys = [] of UInt8*
       ctx_map_dev_types = [] of Int32
       ctx_map_dev_ids = [] of Int32
@@ -456,14 +573,29 @@ module MXNet
           ctx_map_dev_ids << v.device_id
         end
       end
-      exec_handle = ExecutorHandle.null
-      shared_handle = if shared_exec.nil?
-                        ExecutorHandle.null
-                      else
-                        shared_exec.handle
-                      end
+      return ctx_map_keys, ctx_map_dev_types, ctx_map_dev_ids
+    end
+
+    def bind(ctx : Context,
+             args : Array(NDArray) | Hash(String, NDArray) | Hash(::Symbol, NDArray),
+             args_grad : Array(NDArray) | Hash(String, NDArray) | Hash(::Symbol, NDArray) | Nil,
+             grad_req : BindReq | Hash(String, BindReq) | Hash(::Symbol, BindReq) | Array(BindReq) = BindReq::WRITE,
+             aux_states : Array(NDArray) | Hash(String, NDArray) | Hash(::Symbol, NDArray) | Nil = nil,
+             group2ctx : Hash(String, Context)? = nil,
+             shared_exec : Executor? = nil) : Executor
+      symbol_arguments = arguments
+      raise MXError.new "arguments is null" if symbol_arguments.nil?
+      args_handle, args_ndarray = bind_args_param(symbol_arguments, args)
+      args_grad_handle, args_grad_ndarray = bind_args_param(symbol_arguments, args_grad)
+      auxiliary_states_ = auxiliary_states
+      raise MXError.new "auxiliary_states is null" if auxiliary_states_.nil?
+      aux_args_handle, aux_states_ndarray = bind_args_param(auxiliary_states_, aux_states)
+      reqs_array_ = bind_grads_req_param(symbol_arguments, grad_req)
+      reqs_array = reqs_array_.map { |x| x.value.to_u32 }
+      ctx_map_keys, ctx_map_dev_types, ctx_map_dev_ids = bind_ctx_param group2ctx
+      shared_handle = shared_exec.nil? ? Pointer(Void).null : shared_exec.handle.to_unsafe
       MXNet.check_call LibMXNet.mx_executor_bind_ex(@handle,
-        ctx.device_type_id,
+        ctx.device_type.value,
         ctx.device_id,
         ctx_map_keys.size,
         ctx_map_keys,
@@ -471,19 +603,20 @@ module MXNet
         ctx_map_dev_ids,
         args_handle.size,
         args_handle,
-        args_grad_handle,
+        args_grad_handle.size == 0 ? args_grad_handle.to_unsafe : Pointer(LibMXNet::NDArrayHandle).null,
         reqs_array,
-        aux_args_handle,
+        aux_args_handle.size,
+        aux_args_handle.to_unsafe,
         shared_handle,
         out exec_handle
       )
       executor = Executor.new exec_handle, self.clone
-      exeuctor.arg_arrays = args_ndarray
+      executor.arg_arrays = args_ndarray
       executor.grad_arrays = args_grad_ndarray
       executor.aux_arrays = aux_states_ndarray
       executor.ctx = Context.new ctx.device_type, ctx.device_id
-      executor.grads_req = grads_req
-      exeuctor.group2ctx = if group2ctx.nil?
+      executor.grad_req = reqs_array_
+      executor.group2ctx = if group2ctx.nil?
                              nil
                            else
                              group2ctx.map { |k, v| {k, Context.new(v.device_type, v.device_id)} }.to_h

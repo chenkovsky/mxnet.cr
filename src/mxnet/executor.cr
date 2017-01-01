@@ -6,6 +6,8 @@ module MXNet
       Hash.zip name, arrays
     end
 
+    property :arg_arrays, :grad_arrays, :aux_arrays, :ctx, :grad_req, :group2ctx
+    getter :outputs
     @handle : LibMXNet::ExecutorHandle
     @symbol : Symbol
     @arg_arrays : Array(NDArray)?
@@ -20,7 +22,7 @@ module MXNet
     @monitor_callback : MXMonitorCallback?
 
     @ctx : Context?
-    @grad_req : (Array(String) | Hash(String, String))?
+    @grad_req : Array(Symbol::BindReq) | Hash(String, Symbol::BindReq) | Nil
     @group2ctx : Hash(String, Context)?
     protected def initialize(@handle, @symbol)
       @outputs = get_outputs
@@ -101,8 +103,6 @@ module MXNet
     end
 
     private def get_outputs
-      nd_handles = Pointer(NDArrayHandle).null
-      size = MXUInt.new 0
       MXNet.check_call(LibMXNet.mx_executor_outputs(@handle, out size, out nd_handles))
       (0...size).map do |idx|
         NDArray.new nd_handles[idx]
@@ -116,7 +116,7 @@ module MXNet
           arr.copy_to(arg_dict[name])
         end
       end
-      MXNet.check_call LibMXNet.mx_executor_forward(@handle, is_train)
+      MXNet.check_call LibMXNet.mx_executor_forward(@handle, is_train ? 1 : 0)
     end
 
     def backward(out_grads : Array(NDArray) = [] of NDArray)
@@ -125,8 +125,8 @@ module MXNet
     end
 
     def backward(out_grad : NDArray)
-      nd_array_handles = [out_grad.handle]
-      MXNet.check_call LibMXNet.mx_executor_backward(@handle, nd_array_handles)
+      nd_array_handles = [out_grad.to_unsafe]
+      MXNet.check_call LibMXNet.mx_executor_backward(@handle, nd_array_handles.size, nd_array_handles)
     end
 
     def moinitor_callback=(callback : MXMonitorCallback)

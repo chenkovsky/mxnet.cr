@@ -7,18 +7,17 @@ module MXNet
     end
     @device_type : DeviceType
     @device_id : Int32
-    @old_ctx : Context?
     getter :device_type, :device_id
     @@default_ctx : Context = Context.new DeviceType::CPU, 0
 
     def initialize(@device_type, @device_id = 0)
-      @old_ctx = nil
     end
 
     def self.with(ctx)
-      @@default_ctx = cxt
+      old_ctx = @@default_ctx
+      @@default_ctx = ctx
       yield ctx
-      @@default_ctx = @old_ctx
+      @@default_ctx = old_ctx
     end
 
     def to_s(io)

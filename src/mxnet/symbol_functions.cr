@@ -1,10 +1,5 @@
 module MXNet
   class Symbol::Function
-    enum BindReq
-      NULL  = 0
-      WRITE = 1
-      ADD   = 3
-    end
     getter :name
 
     Functions = Hash(String, Symbol::Function).new
@@ -503,12 +498,12 @@ module MXNet
         pooled_size: pooled_size, spatial_scale: spatial_scale, name: name, attr: attr)
     end
 
-    def uniform(shape : Array(Int32), low : Float32 = 0_f32, high : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_uniform, data: self, shape: Shape.to_str(shape), low: low, high: high, name: name, attr: attr)
+    def self.uniform(shape : Array(Int32), low : Float32 = 0_f32, high : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
+      Symbol.create(Function::F_uniform, shape: Shape.to_str(shape), low: low, high: high, name: name, attr: attr)
     end
 
-    def normal(shape : Array(Int32), loc : Float32 = 0_f32, scale : Floart32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
-      Symbol.create(Function::F_normal, data: self, shape: Shape.to_str(shape), loc: loc, scale: scale, name: name, attr: attr)
+    def self.normal(shape : Array(Int32), loc : Float32 = 0_f32, scale : Float32 = 1_f32, name : String? = nil, attr : Hash(String, String)? = nil)
+      Symbol.create(Function::F_normal, shape: Shape.to_str(shape), loc: loc, scale: scale, name: name, attr: attr)
     end
 
     def sequence_last(sequence_length : Symbol? = nil, name : String? = nil, attr : Hash(String, String)? = nil)

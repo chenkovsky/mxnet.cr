@@ -66,6 +66,7 @@ describe MXNet do
       data2 = data.as(Hash(String, MXNet::NDArray))
       data2.size.should eq(1)
       data2["my_arr"].to_a.should eq(tmp)
+      FileUtils.rm ".spec_save_load"
     end
 
     it "serialize & deserialize" do

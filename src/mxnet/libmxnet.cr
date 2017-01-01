@@ -395,6 +395,7 @@ lib LibMXNet
   # param out 2*out_size strings representing key value pairs.
   # return 0 when success, -1 when failure happens
   fun mx_symbol_list_attr = MXSymbolListAttr(symbol : SymbolHandle, out_size : MXUInt*, out_ : UInt8***) : Int32
+  fun mx_symbol_list_attr_shallow = MXSymbolListAttrShallow(symbol : SymbolHandle, out_size : MXUInt*, out_ : UInt8***) : Int32
   # List arguments in the symbol.
   # param symbol the symbol
   # param out_size output size
@@ -633,7 +634,7 @@ lib LibMXNet
                                              map_dev_ids : Int32*, len : MXUInt,
                                              in_args : NDArrayHandle*, arg_grad_store : NDArrayHandle*,
                                              grad_req_type : MXUInt*, aux_states_len : MXUInt,
-                                             aux_states : NDArrayHandle*, shared_exec : ExecutorHandle,
+                                             aux_states : NDArrayHandle*, shared_exec : Void*,
                                              out_ : ExecutorHandle*) : Int32
 
   # set a call back to notify the completion of operation
