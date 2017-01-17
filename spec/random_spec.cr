@@ -27,7 +27,7 @@ describe MXNet do
         ret1.should eq(ret2)
         un1.should eq(un2)
         (mean(ret1.to_a) - mu).abs.should be < 0.1
-        (mean(ret1.to_a) - sigma).abs.should be < 0.1
+        (std(ret1.to_a) - sigma).abs.should be < 0.1
         (mean(un1.to_a) - (a + b)/2).abs.should be < 0.1
       end
     end
@@ -52,7 +52,7 @@ describe MXNet do
       un1.should eq(un2)
       (mean(un1.to_a) - (a + b)/2).abs.should be < 0.1
       _Y = MXNet::Symbol.normal(loc: mu, scale: sigma, shape: shape)
-      yexec = _Y.bind(dev)
+      yexec = _Y.simple_bind(dev)
       MXNet::Random.seed 128
       yexec.forward
       ret1 = yexec.outputs[0].copy_to(dev)

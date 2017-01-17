@@ -105,8 +105,8 @@ module MXNet
       Symbol.create(Function::F_Activation, name: name, act_type: act_type.to_s.downcase, data: self, attr: attr)
     end
 
-    def batch_norm(eps : MXFloat = 0.001,
-                   momentum : MXFloat = 0.9,
+    def batch_norm(eps : MXFloat = 0.001_f32,
+                   momentum : MXFloat = 0.9_f32,
                    fix_gamma : Bool = true,
                    use_global_stats : Bool = false, name : String? = nil, attr : Hash(String, String)? = nil)
       Symbol.create(Function::F_BatchNorm, eps: eps,
@@ -157,7 +157,7 @@ module MXNet
                     dilate : Array(Int32) = [1, 1],
                     pad : Array(Int32) = [0, 0],
                     num_group : Int32 = 1,
-                    workspace : UInt64 = 1024,
+                    workspace : UInt64 = 1024_u64,
                     no_bias : Bool = false,
                     cudnn_tune : CudnnTune = CudnnTune::Off,
                     cudnn_off : Bool = false,

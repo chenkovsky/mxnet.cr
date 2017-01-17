@@ -1,6 +1,7 @@
 module MXNet
-  class AttrScope
+  struct AttrScope
     # Attribute scoping support for symbolic API.
+    def_clone
     getter :attr
 
     def initialize(@attr : Hash(String, String) = {} of String => String)
@@ -28,6 +29,6 @@ module MXNet
       end
     end
 
-    @@current = AttrScope.new
+    @@current : AttrScope = AttrScope.new
   end
 end

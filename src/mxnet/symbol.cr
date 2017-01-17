@@ -461,11 +461,11 @@ module MXNet
       MXNet.check_call LibMXNet.mx_symbol_compose(@handle, name, args.size, keys, args)
     end
 
-    def bind(ctx : Context,
-             shapes : Hash(String, Shape) | Hash(String, Array(Int32)) | Hash(String, Array(MXUInt)) | Hash(::Symbol, Shape) | Hash(::Symbol, Array(Int32)) | Hash(::Symbol, Array(MXUInt)) = {} of String => Shape,
-             grad_req : BindReq = BindReq::WRITE,
-             types : Hash(String, MXType) | Hash(::Symbol, MXType) | Nil = nil,
-             group2ctx : Hash(String, Context)? = nil) : Executor
+    def simple_bind(ctx : Context,
+                    shapes : Hash(String, Shape) | Hash(String, Array(Int32)) | Hash(String, Array(MXUInt)) | Hash(::Symbol, Shape) | Hash(::Symbol, Array(Int32)) | Hash(::Symbol, Array(MXUInt)) = {} of String => Shape,
+                    grad_req : BindReq = BindReq::WRITE,
+                    types : Hash(String, MXType) | Hash(::Symbol, MXType) | Nil = nil,
+                    group2ctx : Hash(String, Context)? = nil) : Executor
       args = arguments
       types_ = types.nil? ? args.map_with_index { |a, i| {a, MXType::Float32_T} }.to_h : types
       arg_shapes, _, aux_shapes = infer_shape shapes
@@ -603,7 +603,7 @@ module MXNet
         ctx_map_dev_ids,
         args_handle.size,
         args_handle,
-        args_grad_handle.size == 0 ? args_grad_handle.to_unsafe : Pointer(LibMXNet::NDArrayHandle).null,
+        args_grad_handle.size != 0 ? args_grad_handle.to_unsafe : Pointer(LibMXNet::NDArrayHandle).null,
         reqs_array,
         aux_args_handle.size,
         aux_args_handle.to_unsafe,
